@@ -117,7 +117,7 @@ func _run() -> void:
 		await _physics_frames(5)
 	_check(scene.xp_bonus > bonus_before, "gold relic increases XP gain")
 	_check(scene.collection_radius > 2.2, "gold relic increases collection radius")
-	_check(scene.pickup_message.visible and "GOLD RELIC" in scene.pickup_message.text, "gold relic displays its pickup message")
+	_check(scene.pickup_message.visible and "Gold Relic" in scene.pickup_message.text, "gold relic displays its pickup message")
 
 	# Damage should flash the screen edges, then health should regenerate.
 	scene.player_health = 60.0
@@ -131,8 +131,9 @@ func _run() -> void:
 	scene._check_level_up()
 	_check(scene.upgrade_active, "full XP bar opens the upgrade screen")
 	_check(scene.current_offers.size() == 3, "upgrade screen presents three choices")
-	scene._choose_upgrade(0)
-	_check(not scene.upgrade_active and not paused, "choosing an upgrade resumes gameplay")
+	var first_upgrade_card: Button = scene.cards_row.get_child(0)
+	first_upgrade_card.pressed.emit()
+	_check(not scene.upgrade_active and not paused, "clicking an upgrade resumes gameplay")
 	_check(scene._enemy_spawn_interval(600.0) < scene._enemy_spawn_interval(0.0), "enemy spawn interval decreases over time")
 	_check(is_equal_approx(scene._enemy_spawn_interval(0.0), 0.25) and is_equal_approx(scene._enemy_spawn_interval(600.0), 0.0375), "enemy spawn interval is quadrupled with no cap gate")
 	_check(scene._enemy_health_multiplier(600.0) > scene._enemy_health_multiplier(0.0), "new enemy health increases over time")
@@ -149,7 +150,7 @@ func _run() -> void:
 	scene.elapsed = scene.RUN_DURATION - 0.1
 	scene._process(0.2)
 	_check(scene.game_over and paused, "surviving ten minutes ends the run")
-	_check("YOU SURVIVED" in scene.upgrade_title.text, "ten-minute survival displays the victory screen")
+	_check("You Survived" in scene.upgrade_title.text, "ten-minute survival displays the victory screen")
 
 	Input.action_release("move_forward")
 	Input.action_release("jump")

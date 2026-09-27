@@ -10,20 +10,22 @@ const MegaFireballScript = preload("res://scripts/mega_fireball.gd")
 const ARENA_HALF := 48.0
 const RUN_DURATION := 600.0
 const HEALTH_REGEN_PER_SECOND := 2.0
+const STAR_SPAWN_INTERVAL := 120.0
+const MAGNET_SPAWN_INTERVAL := 14.0
 const RARITIES := [
-	{"name": "COMMON", "color": Color("f4f4f4"), "mult": 1.0, "weight": 50.0},
-	{"name": "UNCOMMON", "color": Color("59e66b"), "mult": 1.45, "weight": 27.0},
-	{"name": "RARE", "color": Color("55a6ff"), "mult": 2.0, "weight": 14.0},
-	{"name": "EPIC", "color": Color("bd6bff"), "mult": 2.8, "weight": 7.0},
-	{"name": "LEGENDARY", "color": Color("ff9d32"), "mult": 4.0, "weight": 2.0}
+	{"name": "Common", "color": Color("f4f4f4"), "mult": 1.0, "weight": 50.0},
+	{"name": "Uncommon", "color": Color("59e66b"), "mult": 1.45, "weight": 27.0},
+	{"name": "Rare", "color": Color("55a6ff"), "mult": 2.0, "weight": 14.0},
+	{"name": "Epic", "color": Color("bd6bff"), "mult": 2.8, "weight": 7.0},
+	{"name": "Legendary", "color": Color("ff9d32"), "mult": 4.0, "weight": 2.0}
 ]
 const UPGRADE_DATA := {
-	"projectiles": {"title": "MULTISHOT", "description": "+%s fireball projectile", "icon": "▦"},
-	"bounces": {"title": "RICOCHET", "description": "+%s projectile bounce", "icon": "↗"},
-	"radius": {"title": "BIG BANG", "description": "+%s explosion radius", "icon": "□"},
-	"damage": {"title": "INFERNO", "description": "+%s fireball damage", "icon": "◆"},
-	"crit": {"title": "LUCKY SPARK", "description": "+%s%% critical chance", "icon": "✦"},
-	"attack_speed": {"title": "QUICK CAST", "description": "+%s%% attack speed", "icon": "»"}
+	"projectiles": {"title": "Multishot", "description": "+%s Fireball Projectile", "icon": "▦"},
+	"bounces": {"title": "Ricochet", "description": "+%s Projectile Bounce", "icon": "↗"},
+	"radius": {"title": "Big Bang", "description": "+%s Explosion Radius", "icon": "□"},
+	"damage": {"title": "Inferno", "description": "+%s Fireball Damage", "icon": "◆"},
+	"crit": {"title": "Lucky Spark", "description": "+%s%% Critical Chance", "icon": "✦"},
+	"attack_speed": {"title": "Quick Cast", "description": "+%s%% Attack Speed", "icon": "»"}
 }
 
 var player: CharacterBody3D
@@ -43,8 +45,8 @@ var stats := {
 }
 var enemy_spawn_clock := 0.0
 var relic_spawn_clock := 10.0
-var powerup_spawn_clock := 7.0
-var next_powerup_kind := "star"
+var magnet_spawn_clock := 7.0
+var star_spawn_clock := STAR_SPAWN_INTERVAL
 var elapsed := 0.0
 var kills := 0
 var upgrade_active := false
@@ -95,7 +97,8 @@ func _process(delta: float) -> void:
 		return
 	enemy_spawn_clock -= delta
 	relic_spawn_clock -= delta
-	powerup_spawn_clock -= delta
+	magnet_spawn_clock -= delta
+	star_spawn_clock -= delta
 	var spawn_interval := _enemy_spawn_interval(elapsed)
 	if enemy_spawn_clock <= 0.0:
 		_spawn_enemy()
@@ -103,10 +106,12 @@ func _process(delta: float) -> void:
 	if relic_spawn_clock <= 0.0:
 		_spawn_relic()
 		relic_spawn_clock = 13.0
-	if powerup_spawn_clock <= 0.0:
-		_spawn_powerup(next_powerup_kind)
-		next_powerup_kind = "magnet" if next_powerup_kind == "star" else "star"
-		powerup_spawn_clock = 14.0
+	if magnet_spawn_clock <= 0.0:
+		_spawn_powerup("magnet")
+		magnet_spawn_clock = MAGNET_SPAWN_INTERVAL
+	if star_spawn_clock <= 0.0:
+		_spawn_powerup("star")
+		star_spawn_clock = STAR_SPAWN_INTERVAL
 	_update_hud()
 
 func _input(event: InputEvent) -> void:
@@ -317,7 +322,7 @@ func _fire_mega_fireball() -> void:
 	projectile.position = player.muzzle.global_position
 	add_child(projectile)
 	projectile.setup(-player.camera.global_transform.basis.z)
-	_show_pickup_message("MEGA FIREBALL", Color("ff7b18"))
+	_show_pickup_message("Mega Fireball", Color("ff7b18"))
 
 func _on_enemy_died(_enemy: Node, pos: Vector3) -> void:
 	kills += 1
@@ -333,15 +338,15 @@ func _on_pickup_collected(kind: String, value: float) -> void:
 			collection_radius += 0.55
 			for pickup in get_tree().get_nodes_in_group("pickups"):
 				pickup.collection_radius = collection_radius
-			_show_pickup_message("GOLD RELIC COLLECTED\n+10% XP GAIN   •   +0.55m PICKUP RANGE")
+			_show_pickup_message("Gold Relic Collected\n+10% XP Gain   •   +0.55m Pickup Range")
 		"star":
 			player.activate_star_power(5.0)
-			_show_pickup_message("STAR POWER!\n3× SPEED   •   CONTACT KILLS   •   5 SECONDS")
+			_show_pickup_message("Star Power!\n3× Speed   •   Contact Kills   •   5 Seconds")
 		"magnet":
 			for pickup in get_tree().get_nodes_in_group("pickups"):
 				if pickup.kind == "xp":
 					pickup.activate_magnet()
-			_show_pickup_message("XP MAGNET!\nALL UNCOLLECTED XP IS INBOUND", Color("55a6ff"))
+			_show_pickup_message("XP Magnet!\nAll Uncollected XP Is Inbound", Color("55a6ff"))
 	_update_hud()
 
 func _use_skill(skill_number: int) -> void:
@@ -353,24 +358,24 @@ func _use_skill(skill_number: int) -> void:
 			for enemy in _enemies_within(center, 18.0):
 				enemy.apply_knockback(center, 31.0)
 			_spawn_skill_pulse(center + Vector3.UP * 0.7, 18.0, Color("7de9ff"), 0.3, 0.3)
-			_show_pickup_message("SHOCK WAVE")
+			_show_pickup_message("Shock Wave")
 		2:
 			for enemy in _enemies_within(center, 10.0):
 				enemy.freeze(4.0)
 			_spawn_frost_nova_visual(center + Vector3.UP * 0.15, 10.0)
-			_show_pickup_message("FROST NOVA   •   4 SECOND FREEZE")
+			_show_pickup_message("Frost Nova   •   4 Second Freeze")
 		3:
 			for enemy in _enemies_within(center, 11.0):
 				enemy.take_damage(900.0)
 			_spawn_skill_pulse(center + Vector3.UP * 0.7, 11.0, Color("ff6b24"), 0.16, 0.72)
-			_show_pickup_message("NUKE   •   900 DAMAGE")
+			_show_pickup_message("Nuke   •   900 Damage")
 		4:
 			var vortex := VortexScript.new()
 			vortex.process_mode = Node.PROCESS_MODE_PAUSABLE
 			vortex.position = player.camera.global_position + -player.camera.global_transform.basis.z * 1.6
 			add_child(vortex)
 			vortex.setup(-player.camera.global_transform.basis.z)
-			_show_pickup_message("VORTEX LAUNCHED")
+			_show_pickup_message("Vortex Launched")
 
 func _enemies_within(center: Vector3, radius: float) -> Array[Node]:
 	var nearby: Array[Node] = []
@@ -486,7 +491,7 @@ func _show_upgrade_choices() -> void:
 	for i in current_offers.size():
 		var card := _create_upgrade_card(current_offers[i], i)
 		cards_row.add_child(card)
-	upgrade_title.text = "LEVEL %d  •  CHOOSE AN UPGRADE" % level
+	upgrade_title.text = "Level %d  •  Choose An Upgrade" % level
 	upgrade_overlay.visible = true
 
 func _create_upgrade_card(offer: Dictionary, index: int) -> Button:
@@ -497,12 +502,10 @@ func _create_upgrade_card(offer: Dictionary, index: int) -> Button:
 	if offer.kind in ["projectiles", "bounces"] and int(offer.amount) != 1:
 		description += "s"
 	var button := Button.new()
-	# Upgrade cards are display-only: selection is intentionally restricted to
-	# the 1/2/3 keys so a held mouse button cannot auto-select a card.
-	button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(285, 320)
-	button.text = "%s\n\n%s\n\n%s\n\n[%d]  SELECT" % [data.icon, data.title, description, index + 1]
+	button.text = "%s\n\n%s\n\n%s\n\n[%d]  Select" % [data.icon, data.title, description, index + 1]
 	button.add_theme_font_size_override("font_size", 21)
 	button.add_theme_color_override("font_color", rarity.color)
 	button.add_theme_color_override("font_hover_color", Color.WHITE)
@@ -522,6 +525,7 @@ func _create_upgrade_card(offer: Dictionary, index: int) -> Button:
 	button.add_theme_stylebox_override("hover", hover)
 	button.add_theme_stylebox_override("pressed", hover)
 	button.tooltip_text = rarity.name
+	button.pressed.connect(_choose_upgrade.bind(index))
 	return button
 
 func _choose_upgrade(index: int) -> void:
@@ -547,7 +551,7 @@ func _choose_upgrade(index: int) -> void:
 		get_tree().create_timer(0.2).timeout.connect(_check_level_up)
 
 func _on_hop_changed(chain: int, multiplier: float) -> void:
-	hop_label.text = "HOP %d / 4   ×%.2f SPEED" % [chain, multiplier]
+	hop_label.text = "Hop %d / 4   ×%.2f Speed" % [chain, multiplier]
 	hop_label.modulate = Color("ffd35a") if chain == 4 else Color.WHITE
 
 func _on_player_hurt(amount: float) -> void:
@@ -605,7 +609,7 @@ func _game_over() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	for child in cards_row.get_children():
 		child.queue_free()
-	upgrade_title.text = "RUN OVER\n\nLEVEL %d  •  %d CUBES DEFEATED\n\nPRESS R TO RUN AGAIN" % [level, kills]
+	upgrade_title.text = "Run Over\n\nLevel %d  •  %d Cubes Defeated\n\nPress R To Run Again" % [level, kills]
 	upgrade_overlay.visible = true
 
 func _win_run() -> void:
@@ -615,7 +619,7 @@ func _win_run() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	for child in cards_row.get_children():
 		child.queue_free()
-	upgrade_title.text = "YOU SURVIVED!\n\n10:00 COMPLETE  •  LEVEL %d  •  %d CUBES DEFEATED\n\nPRESS R TO PLAY AGAIN" % [level, kills]
+	upgrade_title.text = "You Survived!\n\n10:00 Complete  •  Level %d  •  %d Cubes Defeated\n\nPress R To Play Again" % [level, kills]
 	upgrade_overlay.visible = true
 
 func _build_hud() -> void:
@@ -626,7 +630,7 @@ func _build_hud() -> void:
 	var margin := MarginContainer.new()
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 26)
+	margin.add_theme_constant_override("margin_left", 14)
 	margin.add_theme_constant_override("margin_top", 22)
 	margin.add_theme_constant_override("margin_right", 26)
 	margin.add_theme_constant_override("margin_bottom", 20)
@@ -635,25 +639,13 @@ func _build_hud() -> void:
 	margin.add_child(root)
 	var top := HBoxContainer.new()
 	root.add_child(top)
-	var left_panel := PanelContainer.new()
-	left_panel.custom_minimum_size = Vector2(350, 0)
-	left_panel.add_theme_stylebox_override("panel", _panel_style(Color(0.04, 0.08, 0.12, 0.78), Color("6ee7ff")))
-	top.add_child(left_panel)
-	var left_margin := MarginContainer.new()
-	left_margin.add_theme_constant_override("margin_left", 16)
-	left_margin.add_theme_constant_override("margin_right", 16)
-	left_margin.add_theme_constant_override("margin_top", 10)
-	left_margin.add_theme_constant_override("margin_bottom", 10)
-	left_panel.add_child(left_margin)
-	var left := VBoxContainer.new()
-	left_margin.add_child(left)
 	health_bar = ProgressBar.new()
-	health_bar.custom_minimum_size = Vector2(315, 30)
+	health_bar.custom_minimum_size = Vector2(300, 30)
 	health_bar.max_value = 100.0
 	health_bar.show_percentage = false
-	health_bar.add_theme_stylebox_override("background", _flat_style(Color("2a1720")))
+	health_bar.add_theme_stylebox_override("background", StyleBoxEmpty.new())
 	health_bar.add_theme_stylebox_override("fill", _flat_style(Color("ff5d62")))
-	left.add_child(health_bar)
+	top.add_child(health_bar)
 	health_label = Label.new()
 	health_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	health_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -666,11 +658,14 @@ func _build_hud() -> void:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(spacer)
+	var wave_margin := MarginContainer.new()
+	wave_margin.add_theme_constant_override("margin_top", 48)
+	top.add_child(wave_margin)
 	wave_label = Label.new()
 	wave_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	wave_label.add_theme_font_size_override("font_size", 20)
 	_style_hud_label(wave_label)
-	top.add_child(wave_label)
+	wave_margin.add_child(wave_label)
 
 	# The XP bar is independent of the corner panels so it remains exactly
 	# centered at every supported viewport size.
@@ -711,12 +706,12 @@ func _build_hud() -> void:
 	var info := VBoxContainer.new()
 	bottom.add_child(info)
 	hop_label = Label.new()
-	hop_label.text = "HOP 0 / 4   ×1.00 SPEED"
+	hop_label.text = "Hop 0 / 4   ×1.00 Speed"
 	hop_label.add_theme_font_size_override("font_size", 20)
 	_style_hud_label(hop_label)
 	info.add_child(hop_label)
 	var controls := Label.new()
-	controls.text = "SPACE HOP   •   SHIFT+SPACE LONG JUMP   •   CTRL+SPACE MEGA/TRIPLE\nE DASH   •   Q MEGA FIREBALL   •   1 SHOCK   2 FREEZE   3 NUKE   4 VORTEX   •   LMB FIRE"
+	controls.text = "Space: Hop   •   Shift+Space: Long Jump   •   Ctrl+Space: Mega/Triple\nE: Dash   •   Q: Mega Fireball   •   1: Shock   2: Freeze   3: Nuke   4: Vortex   •   LMB: Fire"
 	controls.modulate = Color(1, 1, 1, 0.72)
 	controls.add_theme_font_size_override("font_size", 14)
 	_style_hud_label(controls)
@@ -788,37 +783,37 @@ void fragment() {
 	pause_box.add_theme_constant_override("separation", 20)
 	pause_overlay.add_child(pause_box)
 	var pause_title := Label.new()
-	pause_title.text = "PAUSED"
+	pause_title.text = "Paused"
 	pause_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pause_title.add_theme_font_size_override("font_size", 52)
 	_style_hud_label(pause_title)
 	pause_box.add_child(pause_title)
 	var pause_hint := Label.new()
-	pause_hint.text = "The survival timer is stopped"
+	pause_hint.text = "The Survival Timer Is Stopped"
 	pause_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pause_hint.add_theme_font_size_override("font_size", 18)
 	pause_hint.modulate = Color(1, 1, 1, 0.75)
 	pause_box.add_child(pause_hint)
 	var resume_button := Button.new()
-	resume_button.text = "RESUME"
+	resume_button.text = "Resume"
 	resume_button.custom_minimum_size = Vector2(300, 56)
 	resume_button.add_theme_font_size_override("font_size", 22)
 	resume_button.pressed.connect(_set_pause.bind(false))
 	pause_box.add_child(resume_button)
 	var restart_button := Button.new()
-	restart_button.text = "RESTART RUN"
+	restart_button.text = "Restart Run"
 	restart_button.custom_minimum_size = Vector2(300, 48)
 	restart_button.add_theme_font_size_override("font_size", 18)
 	restart_button.pressed.connect(_restart_run)
 	pause_box.add_child(restart_button)
 	var lobby_button := Button.new()
-	lobby_button.text = "RETURN TO LOBBY"
+	lobby_button.text = "Return To Lobby"
 	lobby_button.custom_minimum_size = Vector2(300, 48)
 	lobby_button.add_theme_font_size_override("font_size", 18)
 	lobby_button.pressed.connect(_return_to_lobby)
 	pause_box.add_child(lobby_button)
 	var escape_hint := Label.new()
-	escape_hint.text = "Press ESC to resume"
+	escape_hint.text = "Press Esc To Resume"
 	escape_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	escape_hint.add_theme_font_size_override("font_size", 16)
 	escape_hint.modulate = Color(1, 1, 1, 0.65)
@@ -870,6 +865,13 @@ func _style_hud_label(label: Label) -> void:
 	label.add_theme_color_override("font_outline_color", Color(0.02, 0.05, 0.08, 0.88))
 	label.add_theme_constant_override("outline_size", 4)
 
+func _alive_enemy_count() -> int:
+	var alive := 0
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		if is_instance_valid(enemy) and not enemy.defeated:
+			alive += 1
+	return alive
+
 func _update_hud() -> void:
 	if not is_instance_valid(health_label):
 		return
@@ -879,10 +881,10 @@ func _update_hud() -> void:
 	xp_bar.max_value = xp_needed
 	xp_bar.value = xp
 	level_label.text = "Level %d" % level
-	xp_label.text = "XP %d / %d   •   BONUS +%d%%   •   PULL %.1fm" % [int(xp), int(xp_needed), int(xp_bonus * 100), collection_radius]
+	xp_label.text = "XP %d / %d   •   Bonus +%d%%   •   Pull %.1fm" % [int(xp), int(xp_needed), int(xp_bonus * 100), collection_radius]
 	if player.is_star_powered():
-		xp_label.text += "   •   STAR %.1fs" % player.star_power_timer
-	stats_label.text = "FIREBALL  %d × %.0f DMG\nBOUNCE %d   •   BLAST %.1fm   •   CRIT %d%%   •   RATE ×%.2f" % [stats.projectiles, stats.damage, stats.bounces, stats.radius, int(stats.crit * 100), stats.attack_speed]
+		xp_label.text += "   •   Star %.1fs" % player.star_power_timer
+	stats_label.text = "Fireball  %d × %.0f Dmg\nBounce %d   •   Blast %.1fm   •   Crit %d%%   •   Rate ×%.2f" % [stats.projectiles, stats.damage, stats.bounces, stats.radius, int(stats.crit * 100), stats.attack_speed]
 	var remaining := ceili(maxf(0.0, RUN_DURATION - elapsed))
 	var spawn_rate := 1.0 / _enemy_spawn_interval(elapsed)
-	wave_label.text = "%d CUBES  •  SPAWN %.1f/s  •  %02d:%02d REMAINING" % [kills, spawn_rate, remaining / 60, remaining % 60]
+	wave_label.text = "%d Alive  •  %d Defeated  •  Spawn %.1f/s  •  %02d:%02d Remaining" % [_alive_enemy_count(), kills, spawn_rate, remaining / 60, remaining % 60]

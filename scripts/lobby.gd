@@ -1,6 +1,7 @@
 extends Control
 
 var start_button: Button
+var exit_button: Button
 
 func _ready() -> void:
 	if DisplayServer.get_name() != "headless":
@@ -42,14 +43,21 @@ func _ready() -> void:
 	margin.add_child(content)
 
 	start_button = Button.new()
-	start_button.text = "START RUN"
+	start_button.text = "Start Run"
 	start_button.custom_minimum_size = Vector2(380, 72)
 	start_button.add_theme_font_size_override("font_size", 28)
 	start_button.pressed.connect(_start_run)
 	content.add_child(start_button)
 
+	exit_button = Button.new()
+	exit_button.text = "Exit Game"
+	exit_button.custom_minimum_size = Vector2(380, 56)
+	exit_button.add_theme_font_size_override("font_size", 22)
+	exit_button.pressed.connect(_exit_game)
+	content.add_child(exit_button)
+
 	var hint := Label.new()
-	hint.text = "WASD MOVE  •  SPACE JUMP  •  LMB FIRE\nSHIFT LONG JUMP  •  CTRL MEGA JUMP  •  E DASH"
+	hint.text = "WASD: Move  •  Space: Jump  •  LMB: Fire\nShift: Long Jump  •  Ctrl: Mega Jump  •  E: Dash"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", 15)
 	hint.modulate = Color(1, 1, 1, 0.64)
@@ -57,3 +65,6 @@ func _ready() -> void:
 
 func _start_run() -> void:
 	get_tree().change_scene_to_file("res://main.tscn")
+
+func _exit_game() -> void:
+	get_tree().quit()

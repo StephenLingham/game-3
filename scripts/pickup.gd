@@ -53,7 +53,7 @@ func _ready() -> void:
 	elif kind == "star":
 		_build_star_beacon(mat)
 	elif kind == "magnet":
-		_build_powerup_beacon(mat, "XP MAGNET\nPULL EVERY XP ORB")
+		_build_powerup_beacon(mat, "XP Magnet\nPull Every XP Orb")
 	base_y = global_position.y
 
 func _build_relic_beacon(material: StandardMaterial3D) -> void:
@@ -72,7 +72,7 @@ func _build_relic_beacon(material: StandardMaterial3D) -> void:
 	light.omni_range = 6.0
 	add_child(light)
 	var label := Label3D.new()
-	label.text = "GOLD RELIC\nXP +10%  •  PULL +0.55m"
+	label.text = "Gold Relic\nXP +10%  •  Pull +0.55m"
 	label.position = Vector3(0, 1.45, 0)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.no_depth_test = true
@@ -118,7 +118,7 @@ func _build_star_visual(material: StandardMaterial3D) -> void:
 		add_child(star)
 
 func _build_star_beacon(material: StandardMaterial3D) -> void:
-	_add_powerup_light_and_label(material, "STAR POWER\n3× SPEED  •  CONTACT KILLS")
+	_add_powerup_light_and_label(material, "Star Power\n3× Speed  •  Contact Kills")
 
 func _add_powerup_light_and_label(material: StandardMaterial3D, text: String) -> void:
 	var light := OmniLight3D.new()

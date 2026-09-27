@@ -9,7 +9,9 @@ func _run() -> void:
 	current_scene = lobby
 	await process_frame
 	assert(is_instance_valid(lobby.start_button), "Lobby should display a start button")
-	assert(lobby.start_button.text == "START RUN", "Lobby button should clearly start a run")
+	assert(lobby.start_button.text == "Start Run", "Lobby button should clearly start a run in title case")
+	assert(is_instance_valid(lobby.exit_button) and lobby.exit_button.text == "Exit Game", "Lobby should display a title-case exit button")
+	assert(not lobby.exit_button.pressed.get_connections().is_empty(), "Exit button should be connected")
 
 	lobby._start_run()
 	await process_frame

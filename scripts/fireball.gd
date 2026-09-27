@@ -137,7 +137,7 @@ func _enemy_aim_point(enemy: Node3D) -> Vector3:
 func _spawn_damage_number(world_position: Vector3, amount: float, is_crit: bool) -> void:
 	var label := Label3D.new()
 	label.add_to_group("damage_numbers")
-	label.text = "%d%s" % [int(round(amount)), " CRIT!" if is_crit else ""]
+	label.text = "%d%s" % [int(round(amount)), " Crit!" if is_crit else ""]
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.no_depth_test = true
 	label.font_size = 42 if is_crit else 34
