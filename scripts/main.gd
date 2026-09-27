@@ -33,7 +33,6 @@ var player_health := 100.0
 var level := 1
 var xp := 0.0
 var xp_needed := 100.0
-var xp_bonus := 0.0
 var collection_radius := 2.2
 var stats := {
 	"projectiles": 1,
@@ -123,10 +122,6 @@ func _input(event: InputEvent) -> void:
 		elif game_over and event.keycode == KEY_R:
 			get_tree().paused = false
 			get_tree().reload_current_scene()
-		elif upgrade_active and event.keycode >= KEY_1 and event.keycode <= KEY_3:
-			var index := int(event.keycode - KEY_1)
-			if index < current_offers.size():
-				_choose_upgrade(index)
 		elif not game_over and not pause_active and not upgrade_active and event.is_action_pressed("mega_fireball"):
 			_fire_mega_fireball()
 		elif not game_over and not pause_active and not upgrade_active and event.keycode >= KEY_1 and event.keycode <= KEY_4:
@@ -331,14 +326,15 @@ func _on_enemy_died(_enemy: Node, pos: Vector3) -> void:
 func _on_pickup_collected(kind: String, value: float) -> void:
 	match kind:
 		"xp":
-			xp += value * (1.0 + xp_bonus)
+			xp += value
 			_check_level_up()
 		"relic":
-			xp_bonus += 0.10
+			xp += xp_needed * 0.25
 			collection_radius += 0.55
 			for pickup in get_tree().get_nodes_in_group("pickups"):
 				pickup.collection_radius = collection_radius
-			_show_pickup_message("Gold Relic Collected\n+10% XP Gain   •   +0.55m Pickup Range")
+			_show_pickup_message("Gold Relic Collected\n+25% Level XP   •   +0.55m Pickup Range")
+			_check_level_up()
 		"star":
 			player.activate_star_power(5.0)
 			_show_pickup_message("Star Power!\n3× Speed   •   Contact Kills   •   5 Seconds")
@@ -451,8 +447,12 @@ func _check_level_up() -> void:
 	if xp >= xp_needed and not upgrade_active:
 		xp -= xp_needed
 		level += 1
-		xp_needed = 100.0 + float(level - 1) * 42.0
+		xp_needed = _xp_required_for_level(level)
 		_show_upgrade_choices()
+
+func _xp_required_for_level(target_level: int) -> float:
+	var completed_levels := float(maxi(0, target_level - 1))
+	return 100.0 + completed_levels * 42.0 + completed_levels * completed_levels * 3.0
 
 func _roll_rarity() -> Dictionary:
 	var roll := randf() * 100.0
@@ -505,7 +505,7 @@ func _create_upgrade_card(offer: Dictionary, index: int) -> Button:
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(285, 320)
-	button.text = "%s\n\n%s\n\n%s\n\n[%d]  Select" % [data.icon, data.title, description, index + 1]
+	button.text = "%s\n\n%s\n\n%s\n\nClick To Select" % [data.icon, data.title, description]
 	button.add_theme_font_size_override("font_size", 21)
 	button.add_theme_color_override("font_color", rarity.color)
 	button.add_theme_color_override("font_hover_color", Color.WHITE)
@@ -881,7 +881,7 @@ func _update_hud() -> void:
 	xp_bar.max_value = xp_needed
 	xp_bar.value = xp
 	level_label.text = "Level %d" % level
-	xp_label.text = "XP %d / %d   •   Bonus +%d%%   •   Pull %.1fm" % [int(xp), int(xp_needed), int(xp_bonus * 100), collection_radius]
+	xp_label.text = "XP %d / %d   •   Pull %.1fm" % [int(xp), int(xp_needed), collection_radius]
 	if player.is_star_powered():
 		xp_label.text += "   •   Star %.1fs" % player.star_power_timer
 	stats_label.text = "Fireball  %d × %.0f Dmg\nBounce %d   •   Blast %.1fm   •   Crit %d%%   •   Rate ×%.2f" % [stats.projectiles, stats.damage, stats.bounces, stats.radius, int(stats.crit * 100), stats.attack_speed]

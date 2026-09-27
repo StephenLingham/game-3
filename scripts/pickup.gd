@@ -72,7 +72,7 @@ func _build_relic_beacon(material: StandardMaterial3D) -> void:
 	light.omni_range = 6.0
 	add_child(light)
 	var label := Label3D.new()
-	label.text = "Gold Relic\nXP +10%  •  Pull +0.55m"
+	label.text = "Gold Relic\n25% Level XP  •  Pull +0.55m"
 	label.position = Vector3(0, 1.45, 0)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.no_depth_test = true

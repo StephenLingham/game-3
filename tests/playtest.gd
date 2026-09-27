@@ -105,18 +105,14 @@ func _run() -> void:
 	_check(bounce_b.health < bounce_b_health, "locked ricochet adjusts course and hits a moving enemy")
 	scene.stats.bounces = 0
 
-	# Move a gold relic onto the player and allow Area3D collection to occur.
-	var bonus_before: float = scene.xp_bonus
-	var relic: Node3D
-	for pickup in get_nodes_in_group("pickups"):
-		if pickup.kind == "relic":
-			relic = pickup
-			break
-	if relic:
-		relic.global_position = scene.player.global_position + Vector3.UP * 0.8
-		await _physics_frames(5)
-	_check(scene.xp_bonus > bonus_before, "gold relic increases XP gain")
-	_check(scene.collection_radius > 2.2, "gold relic increases collection radius")
+	# Gold relics grant immediate progress based on the current level and retain
+	# their permanent pickup-range increase.
+	scene.xp = 0.0
+	var relic_xp_grant: float = scene.xp_needed * 0.25
+	var range_before_relic: float = scene.collection_radius
+	scene._on_pickup_collected("relic", 1.0)
+	_check(is_equal_approx(scene.xp, relic_xp_grant), "gold relic grants 25% of the current level XP requirement")
+	_check(is_equal_approx(scene.collection_radius, range_before_relic + 0.55), "gold relic still increases collection radius")
 	_check(scene.pickup_message.visible and "Gold Relic" in scene.pickup_message.text, "gold relic displays its pickup message")
 
 	# Damage should flash the screen edges, then health should regenerate.
@@ -128,9 +124,16 @@ func _run() -> void:
 
 	# Exercise the complete level-up pause/selection/resume path.
 	scene.xp = scene.xp_needed
+	var next_level: int = scene.level + 1
 	scene._check_level_up()
 	_check(scene.upgrade_active, "full XP bar opens the upgrade screen")
 	_check(scene.current_offers.size() == 3, "upgrade screen presents three choices")
+	_check(is_equal_approx(scene.xp_needed, scene._xp_required_for_level(next_level)), "level-up applies the progressive XP curve")
+	var number_key := InputEventKey.new()
+	number_key.pressed = true
+	number_key.keycode = KEY_1
+	scene._input(number_key)
+	_check(scene.upgrade_active, "number keys do not select a level-up option")
 	var first_upgrade_card: Button = scene.cards_row.get_child(0)
 	first_upgrade_card.pressed.emit()
 	_check(not scene.upgrade_active and not paused, "clicking an upgrade resumes gameplay")

@@ -1,5 +1,8 @@
 extends Control
 
+const BUTTON_SIZE := Vector2(380, 64)
+const BUTTON_FONT_SIZE := 24
+
 var start_button: Button
 var exit_button: Button
 
@@ -44,15 +47,15 @@ func _ready() -> void:
 
 	start_button = Button.new()
 	start_button.text = "Start Run"
-	start_button.custom_minimum_size = Vector2(380, 72)
-	start_button.add_theme_font_size_override("font_size", 28)
+	start_button.custom_minimum_size = BUTTON_SIZE
+	start_button.add_theme_font_size_override("font_size", BUTTON_FONT_SIZE)
 	start_button.pressed.connect(_start_run)
 	content.add_child(start_button)
 
 	exit_button = Button.new()
 	exit_button.text = "Exit Game"
-	exit_button.custom_minimum_size = Vector2(380, 56)
-	exit_button.add_theme_font_size_override("font_size", 22)
+	exit_button.custom_minimum_size = BUTTON_SIZE
+	exit_button.add_theme_font_size_override("font_size", BUTTON_FONT_SIZE)
 	exit_button.pressed.connect(_exit_game)
 	content.add_child(exit_button)
 

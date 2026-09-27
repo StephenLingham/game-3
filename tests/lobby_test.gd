@@ -12,6 +12,8 @@ func _run() -> void:
 	assert(lobby.start_button.text == "Start Run", "Lobby button should clearly start a run in title case")
 	assert(is_instance_valid(lobby.exit_button) and lobby.exit_button.text == "Exit Game", "Lobby should display a title-case exit button")
 	assert(not lobby.exit_button.pressed.get_connections().is_empty(), "Exit button should be connected")
+	assert(lobby.start_button.custom_minimum_size == lobby.exit_button.custom_minimum_size, "Lobby buttons should use consistent dimensions")
+	assert(lobby.start_button.get_theme_font_size("font_size") == lobby.exit_button.get_theme_font_size("font_size"), "Lobby buttons should use a consistent font size")
 
 	lobby._start_run()
 	await process_frame

@@ -18,6 +18,11 @@ func _run() -> void:
 	scene.enemy_spawn_clock = 0.0
 	scene._process(0.01)
 	_check(get_nodes_in_group("enemies").size() == count_before + 1, "spawn clock creates an enemy without a population cap")
+	var level_one_xp: float = scene._xp_required_for_level(1)
+	var level_two_xp: float = scene._xp_required_for_level(2)
+	var level_three_xp: float = scene._xp_required_for_level(3)
+	_check(level_two_xp > level_one_xp and level_three_xp > level_two_xp, "each level requires more XP than the previous level")
+	_check(level_three_xp - level_two_xp > level_two_xp - level_one_xp, "the XP requirement grows progressively between levels")
 	_check(is_equal_approx(scene.STAR_SPAWN_INTERVAL, 120.0) and is_equal_approx(scene.MAGNET_SPAWN_INTERVAL, 14.0), "star power spawns every two minutes without slowing magnet spawns")
 	var stars_before := 0
 	for pickup in get_nodes_in_group("pickups"):
@@ -102,7 +107,8 @@ func _run() -> void:
 	_check("Spawn" in scene.wave_label.text and "%d Alive" % scene._alive_enemy_count() in scene.wave_label.text, "HUD displays the spawn rate and current living enemy count")
 	_check(scene.wave_label.global_position.y >= scene.xp_bar.global_position.y + scene.xp_bar.size.y, "top-right status text sits below the level bar")
 	var upgrade_card: Button = scene._create_upgrade_card(scene._make_offer("damage"), 0)
-	_check(upgrade_card.mouse_filter == Control.MOUSE_FILTER_STOP and upgrade_card.focus_mode == Control.FOCUS_NONE and not upgrade_card.pressed.get_connections().is_empty(), "level-up cards can be clicked while numeric shortcuts remain available")
+	_check(upgrade_card.mouse_filter == Control.MOUSE_FILTER_STOP and not upgrade_card.pressed.get_connections().is_empty(), "level-up cards can be clicked")
+	_check("Click To Select" in upgrade_card.text and not "[1]" in upgrade_card.text, "level-up cards show mouse-only selection instructions")
 	upgrade_card.free()
 
 	# A magnet affects XP already on the map, not unrelated collectible types.
