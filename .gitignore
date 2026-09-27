@@ -1,6 +1,10 @@
 # Godot 4+ specific ignores
 .godot/
+.godot-user/
 .nomedia
+
+# Local test recordings and screenshots
+.testdata/
 
 # Godot-specific ignores
 .import/
