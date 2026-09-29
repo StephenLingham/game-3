@@ -16,7 +16,7 @@ func _run() -> void:
 	_check(get_nodes_in_group("enemies").size() >= 7, "enemy pack spawned")
 	var first_enemy: Node = get_nodes_in_group("enemies")[0]
 	_check(is_instance_valid(first_enemy.health_bar_fill), "enemies display an overhead health bar")
-	_check(first_enemy.health_bar_text.text == "300 / 300", "enemy health bar displays current and maximum health")
+	_check(first_enemy.max_health in scene.ENEMY_HEALTH and first_enemy.health_bar_text.text.ends_with("/ %d" % int(first_enemy.max_health)), "enemy health bar displays its fixed type health")
 	_check(get_nodes_in_group("pickups").size() >= 4, "world collectibles spawned")
 
 	# Exercise the exact camera rotation helper used by live mouse-motion events.
@@ -46,9 +46,12 @@ func _run() -> void:
 	_check(scene.player.hop_chain == 4, "fourth hop reaches the full chain")
 
 	await _wait_for_floor(scene.player, 180)
-	# Place a stationary 300 HP enemy in the crosshair and hit it three times.
+	# Place a stationary opening-wave enemy in the crosshair and hit it.
 	var enemies := get_nodes_in_group("enemies")
 	var target: Node3D = enemies[0]
+	target.max_health = 200.0
+	target.health = 200.0
+	target._update_health_bar()
 	scene.enemy_spawn_clock = 999.0
 	for enemy_index in enemies.size():
 		enemies[enemy_index].set_physics_process(false)
@@ -60,7 +63,7 @@ func _run() -> void:
 	var kills_before: int = scene.kills
 	var health_bar_reacted := false
 	var health_text_reacted := false
-	for shot in 3:
+	for shot in 2:
 		scene._on_player_fire(scene.player.muzzle.global_position, -scene.player.camera.global_transform.basis.z)
 		await _physics_frames(36)
 		if is_instance_valid(target) and not target.is_queued_for_deletion():
@@ -71,7 +74,7 @@ func _run() -> void:
 			print("  COMBAT TRACE: shot %d, target health %.1f, live projectiles %d" % [shot + 1, target.health, get_nodes_in_group("projectiles").size()])
 		else:
 			print("  COMBAT TRACE: shot %d defeated target" % (shot + 1))
-	_check(scene.kills > kills_before, "three 100-damage fireballs defeat a 300 HP enemy")
+	_check(scene.kills > kills_before, "two 100-damage fireballs defeat a 200 HP enemy")
 	_check(health_bar_reacted, "enemy health bar shrinks when damage is dealt")
 	_check(health_text_reacted, "enemy health text updates when damage is dealt")
 	_check(get_nodes_in_group("pickups").size() > 4, "defeated enemy drops XP cubes")
@@ -100,9 +103,9 @@ func _run() -> void:
 	# Move the target after the ricochet has already committed to its old path.
 	bounce_b.global_position += Vector3(-8.0, 0.0, 0.0)
 	await _physics_frames(60)
-	_check(bounce_a.health < bounce_a_health, "ricochet damages the first enemy")
+	_check(not is_instance_valid(bounce_a) or bounce_a.health < bounce_a_health, "ricochet damages the first enemy")
 	_check(locked_on, "ricochet locks onto its next enemy")
-	_check(bounce_b.health < bounce_b_health, "locked ricochet adjusts course and hits a moving enemy")
+	_check(not is_instance_valid(bounce_b) or bounce_b.health < bounce_b_health, "locked ricochet adjusts course and hits a moving enemy")
 	scene.stats.bounces = 0
 
 	# Gold relics grant immediate progress based on the current level and retain
@@ -128,6 +131,7 @@ func _run() -> void:
 	scene._check_level_up()
 	_check(scene.upgrade_active, "full XP bar opens the upgrade screen")
 	_check(scene.current_offers.size() == 3, "upgrade screen presents three choices")
+	_check(scene.upgrade_overlay.color.a == 0.0, "level-up choices leave the game visible behind them")
 	_check(is_equal_approx(scene.xp_needed, scene._xp_required_for_level(next_level)), "level-up applies the progressive XP curve")
 	var number_key := InputEventKey.new()
 	number_key.pressed = true
@@ -140,6 +144,7 @@ func _run() -> void:
 	_check(scene._enemy_spawn_interval(600.0) < scene._enemy_spawn_interval(0.0), "enemy spawn interval decreases over time")
 	_check(is_equal_approx(scene._enemy_spawn_interval(0.0), 0.25) and is_equal_approx(scene._enemy_spawn_interval(600.0), 0.0375), "enemy spawn interval is quadrupled with no cap gate")
 	_check(scene._enemy_health_multiplier(600.0) > scene._enemy_health_multiplier(0.0), "new enemy health increases over time")
+	_check(scene._enemy_health_for_type(0) == 100.0 and scene._enemy_health_for_type(9) == 2000.0 and scene.ENEMY_COLORS.size() == 10, "ten coloured enemy types span 100 to 2000 health")
 
 	var elapsed_before_pause: float = scene.elapsed
 	scene._set_pause(true)

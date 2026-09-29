@@ -7,9 +7,11 @@ const KILL_RADIUS := 1.65
 var direction := Vector3.FORWARD
 var lifetime := LIFETIME
 var already_hit := {}
+var attack_id := -1
 
-func setup(fire_direction: Vector3) -> void:
+func setup(fire_direction: Vector3, source_attack_id := -1) -> void:
 	direction = fire_direction.normalized()
+	attack_id = source_attack_id
 
 func _ready() -> void:
 	add_to_group("mega_fireballs")
@@ -70,4 +72,4 @@ func _physics_process(delta: float) -> void:
 			continue
 		already_hit[enemy_id] = true
 		if enemy.has_method("defeat"):
-			enemy.defeat()
+			enemy.defeat(attack_id, enemy.health)

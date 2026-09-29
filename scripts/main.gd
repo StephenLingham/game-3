@@ -8,10 +8,17 @@ const VortexScript = preload("res://scripts/vortex.gd")
 const MegaFireballScript = preload("res://scripts/mega_fireball.gd")
 
 const ARENA_HALF := 48.0
+const ARENA_FULL_RADIUS := ARENA_HALF * 1.45
 const RUN_DURATION := 600.0
 const HEALTH_REGEN_PER_SECOND := 2.0
 const STAR_SPAWN_INTERVAL := 120.0
 const MAGNET_SPAWN_INTERVAL := 14.0
+const SKILL_COOLDOWN := 60.0
+const ENEMY_HEALTH := [100.0, 200.0, 350.0, 550.0, 750.0, 1000.0, 1250.0, 1500.0, 1750.0, 2000.0]
+const ENEMY_COLORS := [
+	Color("ff2020"), Color("ffe600"), Color("1769ff"), Color("20e050"), Color("ff20d6"),
+	Color("16e8ff"), Color("ff7b16"), Color("8b32ff"), Color("f5f5f5"), Color("ff3c8e")
+]
 const RARITIES := [
 	{"name": "Common", "color": Color("f4f4f4"), "mult": 1.0, "weight": 50.0},
 	{"name": "Uncommon", "color": Color("59e66b"), "mult": 1.45, "weight": 27.0},
@@ -52,6 +59,14 @@ var upgrade_active := false
 var game_over := false
 var pause_active := false
 var current_offers: Array[Dictionary] = []
+var skill_cooldowns := [0.0, 0.0, 0.0, 0.0]
+var skill_labels: Array[Label] = []
+var skill_bars: Array[ProgressBar] = []
+var tutorial_overlay: ColorRect
+var run_max_damage := 0.0
+var run_max_attack_kills := 0
+var attack_kills: Dictionary = {}
+var next_attack_id := 1
 
 var health_label: Label
 var health_bar: ProgressBar
@@ -98,6 +113,8 @@ func _process(delta: float) -> void:
 	relic_spawn_clock -= delta
 	magnet_spawn_clock -= delta
 	star_spawn_clock -= delta
+	for i in skill_cooldowns.size():
+		skill_cooldowns[i] = maxf(0.0, skill_cooldowns[i] - delta)
 	var spawn_interval := _enemy_spawn_interval(elapsed)
 	if enemy_spawn_clock <= 0.0:
 		_spawn_enemy()
@@ -122,10 +139,12 @@ func _input(event: InputEvent) -> void:
 		elif game_over and event.keycode == KEY_R:
 			get_tree().paused = false
 			get_tree().reload_current_scene()
-		elif not game_over and not pause_active and not upgrade_active and event.is_action_pressed("mega_fireball"):
-			_fire_mega_fireball()
 		elif not game_over and not pause_active and not upgrade_active and event.keycode >= KEY_1 and event.keycode <= KEY_4:
 			_use_skill(int(event.keycode - KEY_1) + 1)
+	elif event is InputEventMouseButton and event.pressed and event.is_action_pressed("mega_fireball"):
+		if not game_over and not pause_active and not upgrade_active and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+			_fire_mega_fireball()
+			get_viewport().set_input_as_handled()
 
 func _build_environment() -> void:
 	var world := WorldEnvironment.new()
@@ -251,8 +270,8 @@ func _spawn_enemy() -> void:
 	candidate.z = clampf(candidate.z, -44.0, 44.0)
 	enemy.position = Vector3(candidate.x, 0.05, candidate.z)
 	add_child(enemy)
-	var health_multiplier := _enemy_health_multiplier(elapsed)
-	enemy.setup(player, health_multiplier)
+	var enemy_type := _choose_enemy_type(elapsed)
+	enemy.setup(player, enemy_type, ENEMY_HEALTH[enemy_type], ENEMY_COLORS[enemy_type])
 	enemy.died.connect(_on_enemy_died)
 
 func _enemy_spawn_interval(at_time: float) -> float:
@@ -261,8 +280,22 @@ func _enemy_spawn_interval(at_time: float) -> float:
 	return lerpf(0.25, 0.0375, pow(progress, 0.75))
 
 func _enemy_health_multiplier(at_time: float) -> float:
-	var progress := clampf(at_time / RUN_DURATION, 0.0, 1.0)
-	return lerpf(1.0, 3.0, progress)
+	return _enemy_health_for_type(_primary_enemy_type(at_time)) / ENEMY_HEALTH[0]
+
+func _primary_enemy_type(at_time: float) -> int:
+	return clampi(int(floor(at_time / 60.0)), 0, ENEMY_HEALTH.size() - 1)
+
+func _enemy_health_for_type(enemy_type: int) -> float:
+	return ENEMY_HEALTH[clampi(enemy_type, 0, ENEMY_HEALTH.size() - 1)]
+
+func _choose_enemy_type(at_time: float) -> int:
+	var primary := _primary_enemy_type(at_time)
+	var roll := randf()
+	if roll < 0.15 and primary > 0:
+		return primary - 1
+	if roll >= 0.90 and primary < ENEMY_HEALTH.size() - 1:
+		return primary + 1
+	return primary
 
 func _spawn_relic() -> void:
 	var pickup := PickupScript.new()
@@ -299,6 +332,7 @@ func _on_player_fire(origin: Vector3, direction: Vector3) -> void:
 	var aim_point: Vector3 = player.get_aim_point()
 	var center_direction: Vector3 = (aim_point - origin).normalized()
 	var count: int = stats.projectiles
+	var attack_id := _begin_attack()
 	for i in count:
 		var projectile := FireballScript.new()
 		projectile.process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -307,7 +341,8 @@ func _on_player_fire(origin: Vector3, direction: Vector3) -> void:
 		var spread := deg_to_rad(spread_index * 4.0)
 		var shot_direction: Vector3 = center_direction.rotated(Vector3.UP, spread)
 		add_child(projectile)
-		projectile.setup(shot_direction, stats.damage, stats.radius, stats.bounces, stats.crit, player)
+		projectile.damage_dealt.connect(_on_damage_dealt)
+		projectile.setup(shot_direction, stats.damage, stats.radius, stats.bounces, stats.crit, player, attack_id)
 
 func _fire_mega_fireball() -> void:
 	if not is_instance_valid(player):
@@ -316,11 +351,24 @@ func _fire_mega_fireball() -> void:
 	projectile.process_mode = Node.PROCESS_MODE_PAUSABLE
 	projectile.position = player.muzzle.global_position
 	add_child(projectile)
-	projectile.setup(-player.camera.global_transform.basis.z)
+	projectile.setup(-player.camera.global_transform.basis.z, _begin_attack())
 	_show_pickup_message("Mega Fireball", Color("ff7b18"))
 
-func _on_enemy_died(_enemy: Node, pos: Vector3) -> void:
+func _begin_attack() -> int:
+	var attack_id := next_attack_id
+	next_attack_id += 1
+	attack_kills[attack_id] = 0
+	return attack_id
+
+func _on_damage_dealt(amount: float) -> void:
+	run_max_damage = maxf(run_max_damage, amount)
+
+func _on_enemy_died(_enemy: Node, pos: Vector3, attack_id := -1, damage_amount := 0.0) -> void:
 	kills += 1
+	run_max_damage = maxf(run_max_damage, damage_amount)
+	if attack_id >= 0:
+		attack_kills[attack_id] = int(attack_kills.get(attack_id, 0)) + 1
+		run_max_attack_kills = maxi(run_max_attack_kills, int(attack_kills[attack_id]))
 	_spawn_xp(pos)
 
 func _on_pickup_collected(kind: String, value: float) -> void:
@@ -348,23 +396,31 @@ func _on_pickup_collected(kind: String, value: float) -> void:
 func _use_skill(skill_number: int) -> void:
 	if not is_instance_valid(player):
 		return
+	var cooldown_index := skill_number - 1
+	if cooldown_index < 0 or cooldown_index >= skill_cooldowns.size() or skill_cooldowns[cooldown_index] > 0.0:
+		return
+	skill_cooldowns[cooldown_index] = SKILL_COOLDOWN
 	var center := player.global_position
+	var attack_id := _begin_attack()
 	match skill_number:
 		1:
-			for enemy in _enemies_within(center, 18.0):
+			# The arena is 96 units wide, so a 48-unit radius is half its size.
+			var force_radius := ARENA_HALF
+			for enemy in _enemies_within(center, force_radius):
 				enemy.apply_knockback(center, 31.0)
-			_spawn_skill_pulse(center + Vector3.UP * 0.7, 18.0, Color("7de9ff"), 0.3, 0.3)
-			_show_pickup_message("Shock Wave")
+			_spawn_skill_pulse(center + Vector3.UP * 0.7, force_radius, Color("7de9ff"), 0.3, 0.3)
+			_show_pickup_message("Force Push")
 		2:
-			for enemy in _enemies_within(center, 10.0):
+			for enemy in get_tree().get_nodes_in_group("enemies"):
 				enemy.freeze(4.0)
-			_spawn_frost_nova_visual(center + Vector3.UP * 0.15, 10.0)
-			_show_pickup_message("Frost Nova   •   4 Second Freeze")
+			_spawn_frost_nova_visual(center + Vector3.UP * 0.15, ARENA_FULL_RADIUS)
+			_show_pickup_message("Frost Nova   •   Arena Frozen")
 		3:
-			for enemy in _enemies_within(center, 11.0):
-				enemy.take_damage(900.0)
-			_spawn_skill_pulse(center + Vector3.UP * 0.7, 11.0, Color("ff6b24"), 0.16, 0.72)
-			_show_pickup_message("Nuke   •   900 Damage")
+			for enemy in get_tree().get_nodes_in_group("enemies"):
+				if is_instance_valid(enemy) and not enemy.defeated:
+					enemy.take_damage(enemy.max_health, false, attack_id)
+			_spawn_skill_pulse(center + Vector3.UP * 0.7, ARENA_FULL_RADIUS, Color("ff6b24"), 0.55, 0.72)
+			_show_pickup_message("Explosion   •   Arena Cleared")
 		4:
 			var vortex := VortexScript.new()
 			vortex.process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -372,6 +428,7 @@ func _use_skill(skill_number: int) -> void:
 			add_child(vortex)
 			vortex.setup(-player.camera.global_transform.basis.z)
 			_show_pickup_message("Vortex Launched")
+	_update_hud()
 
 func _enemies_within(center: Vector3, radius: float) -> Array[Node]:
 	var nearby: Array[Node] = []
@@ -448,6 +505,7 @@ func _check_level_up() -> void:
 		xp -= xp_needed
 		level += 1
 		xp_needed = _xp_required_for_level(level)
+		_record_run_stats()
 		_show_upgrade_choices()
 
 func _xp_required_for_level(target_level: int) -> float:
@@ -591,18 +649,43 @@ func _set_pause(should_pause: bool) -> void:
 		return
 	pause_active = should_pause
 	pause_overlay.visible = should_pause
+	if is_instance_valid(tutorial_overlay):
+		tutorial_overlay.visible = false
 	get_tree().paused = should_pause
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if should_pause else Input.MOUSE_MODE_CAPTURED
+	if should_pause:
+		_release_mouse_cursor()
+		call_deferred("_release_mouse_cursor")
+	else:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _release_mouse_cursor() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func _show_pause_tutorial() -> void:
+	tutorial_overlay.visible = true
+	pause_overlay.visible = false
+	_release_mouse_cursor()
+
+func _hide_pause_tutorial() -> void:
+	tutorial_overlay.visible = false
+	pause_overlay.visible = true
+	_release_mouse_cursor()
+
+func _record_run_stats() -> void:
+	RunStats.record_run(level, kills, minf(elapsed, RUN_DURATION), run_max_damage, run_max_attack_kills)
 
 func _restart_run() -> void:
+	_record_run_stats()
 	get_tree().paused = false
 	get_tree().reload_current_scene()
 
 func _return_to_lobby() -> void:
+	_record_run_stats()
 	get_tree().paused = false
 	get_tree().change_scene_to_file("res://lobby.tscn")
 
 func _game_over() -> void:
+	_record_run_stats()
 	game_over = true
 	player.alive = false
 	get_tree().paused = true
@@ -613,6 +696,7 @@ func _game_over() -> void:
 	upgrade_overlay.visible = true
 
 func _win_run() -> void:
+	_record_run_stats()
 	game_over = true
 	player.alive = false
 	get_tree().paused = true
@@ -710,12 +794,30 @@ func _build_hud() -> void:
 	hop_label.add_theme_font_size_override("font_size", 20)
 	_style_hud_label(hop_label)
 	info.add_child(hop_label)
-	var controls := Label.new()
-	controls.text = "Space: Hop   •   Shift+Space: Long Jump   •   Ctrl+Space: Mega/Triple\nE: Dash   •   Q: Mega Fireball   •   1: Shock   2: Freeze   3: Nuke   4: Vortex   •   LMB: Fire"
-	controls.modulate = Color(1, 1, 1, 0.72)
-	controls.add_theme_font_size_override("font_size", 14)
-	_style_hud_label(controls)
-	info.add_child(controls)
+	var skills_row := HBoxContainer.new()
+	skills_row.add_theme_constant_override("separation", 8)
+	info.add_child(skills_row)
+	var skill_names := ["Force Push", "Frost Nova", "Explosion", "Vortex"]
+	var skill_colors := [Color("7de9ff"), Color("68d9ff"), Color("ff6b24"), Color("9b55ff")]
+	for i in skill_names.size():
+		var skill_bar := ProgressBar.new()
+		skill_bar.custom_minimum_size = Vector2(132, 32)
+		skill_bar.max_value = SKILL_COOLDOWN
+		skill_bar.value = SKILL_COOLDOWN
+		skill_bar.show_percentage = false
+		skill_bar.add_theme_stylebox_override("background", _panel_style(Color("152132"), skill_colors[i].darkened(0.35)))
+		skill_bar.add_theme_stylebox_override("fill", _flat_style(skill_colors[i]))
+		skills_row.add_child(skill_bar)
+		skill_bars.append(skill_bar)
+		var skill_label := Label.new()
+		skill_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		skill_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		skill_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		skill_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		skill_label.add_theme_font_size_override("font_size", 13)
+		_style_hud_label(skill_label)
+		skill_bar.add_child(skill_label)
+		skill_labels.append(skill_label)
 	var bottom_spacer := Control.new()
 	bottom_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bottom.add_child(bottom_spacer)
@@ -777,8 +879,8 @@ void fragment() {
 	canvas.add_child(pause_overlay)
 	var pause_box := VBoxContainer.new()
 	pause_box.set_anchors_preset(Control.PRESET_CENTER)
-	pause_box.position = Vector2(-210, -190)
-	pause_box.custom_minimum_size = Vector2(420, 380)
+	pause_box.position = Vector2(-210, -220)
+	pause_box.custom_minimum_size = Vector2(420, 440)
 	pause_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	pause_box.add_theme_constant_override("separation", 20)
 	pause_overlay.add_child(pause_box)
@@ -800,6 +902,12 @@ void fragment() {
 	resume_button.add_theme_font_size_override("font_size", 22)
 	resume_button.pressed.connect(_set_pause.bind(false))
 	pause_box.add_child(resume_button)
+	var tutorial_button := Button.new()
+	tutorial_button.text = "Tutorial"
+	tutorial_button.custom_minimum_size = Vector2(300, 48)
+	tutorial_button.add_theme_font_size_override("font_size", 18)
+	tutorial_button.pressed.connect(_show_pause_tutorial)
+	pause_box.add_child(tutorial_button)
 	var restart_button := Button.new()
 	restart_button.text = "Restart Run"
 	restart_button.custom_minimum_size = Vector2(300, 48)
@@ -812,17 +920,45 @@ void fragment() {
 	lobby_button.add_theme_font_size_override("font_size", 18)
 	lobby_button.pressed.connect(_return_to_lobby)
 	pause_box.add_child(lobby_button)
-	var escape_hint := Label.new()
-	escape_hint.text = "Press Esc To Resume"
-	escape_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	escape_hint.add_theme_font_size_override("font_size", 16)
-	escape_hint.modulate = Color(1, 1, 1, 0.65)
-	pause_box.add_child(escape_hint)
+
+	tutorial_overlay = ColorRect.new()
+	tutorial_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	tutorial_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tutorial_overlay.color = Color(0.02, 0.04, 0.07, 0.94)
+	tutorial_overlay.visible = false
+	canvas.add_child(tutorial_overlay)
+	var tutorial_box := VBoxContainer.new()
+	tutorial_box.set_anchors_preset(Control.PRESET_CENTER)
+	tutorial_box.position = Vector2(-350, -285)
+	tutorial_box.custom_minimum_size = Vector2(700, 570)
+	tutorial_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	tutorial_box.add_theme_constant_override("separation", 16)
+	tutorial_overlay.add_child(tutorial_box)
+	var tutorial_title := Label.new()
+	tutorial_title.text = "Tutorial"
+	tutorial_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tutorial_title.add_theme_font_size_override("font_size", 42)
+	_style_hud_label(tutorial_title)
+	tutorial_box.add_child(tutorial_title)
+	var tutorial_text := Label.new()
+	tutorial_text.custom_minimum_size = Vector2(650, 390)
+	tutorial_text.text = "W A S D  —  Move\nMouse  —  Look\nLeft Mouse  —  Fire\nRight Mouse  —  Mega Fireball\n\nSpace  —  Jump / Bunny Hop\nShift + Space  —  Long Jump\nCtrl + Space  —  Mega Triple Jump\nE  —  Dash\n\n1  —  Force Push\n2  —  Frost Nova\n3  —  Explosion\n4  —  Vortex\nEsc  —  Pause"
+	tutorial_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tutorial_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tutorial_text.add_theme_font_size_override("font_size", 20)
+	_style_hud_label(tutorial_text)
+	tutorial_box.add_child(tutorial_text)
+	var tutorial_back := Button.new()
+	tutorial_back.text = "Back"
+	tutorial_back.custom_minimum_size = Vector2(300, 52)
+	tutorial_back.add_theme_font_size_override("font_size", 20)
+	tutorial_back.pressed.connect(_hide_pause_tutorial)
+	tutorial_box.add_child(tutorial_back)
 
 	upgrade_overlay = ColorRect.new()
 	upgrade_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
 	upgrade_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	upgrade_overlay.color = Color(0.025, 0.045, 0.07, 0.94)
+	upgrade_overlay.color = Color(0, 0, 0, 0)
 	upgrade_overlay.visible = false
 	canvas.add_child(upgrade_overlay)
 	var upgrade_box := VBoxContainer.new()
@@ -884,7 +1020,13 @@ func _update_hud() -> void:
 	xp_label.text = "XP %d / %d   •   Pull %.1fm" % [int(xp), int(xp_needed), collection_radius]
 	if player.is_star_powered():
 		xp_label.text += "   •   Star %.1fs" % player.star_power_timer
+	var skill_names := ["Force Push", "Frost Nova", "Explosion", "Vortex"]
+	for i in mini(skill_labels.size(), skill_cooldowns.size()):
+		var remaining: float = skill_cooldowns[i]
+		skill_bars[i].value = SKILL_COOLDOWN - remaining
+		skill_labels[i].text = "%s  READY" % skill_names[i] if remaining <= 0.0 else "%s  %02ds" % [skill_names[i], ceili(remaining)]
 	stats_label.text = "Fireball  %d × %.0f Dmg\nBounce %d   •   Blast %.1fm   •   Crit %d%%   •   Rate ×%.2f" % [stats.projectiles, stats.damage, stats.bounces, stats.radius, int(stats.crit * 100), stats.attack_speed]
-	var remaining := ceili(maxf(0.0, RUN_DURATION - elapsed))
+	var run_remaining := ceili(maxf(0.0, RUN_DURATION - elapsed))
 	var spawn_rate := 1.0 / _enemy_spawn_interval(elapsed)
-	wave_label.text = "%d Alive  •  %d Defeated  •  Spawn %.1f/s  •  %02d:%02d Remaining" % [_alive_enemy_count(), kills, spawn_rate, remaining / 60, remaining % 60]
+	var primary_type := _primary_enemy_type(elapsed)
+	wave_label.text = "Wave %d/10  •  %d HP  •  %d Alive  •  %d Defeated  •  Spawn %.1f/s  •  %02d:%02d Remaining" % [primary_type + 1, int(ENEMY_HEALTH[primary_type]), _alive_enemy_count(), kills, spawn_rate, run_remaining / 60, run_remaining % 60]

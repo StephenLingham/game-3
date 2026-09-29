@@ -57,29 +57,34 @@ func _run() -> void:
 		enemy.set_physics_process(false)
 		enemy.global_position = Vector3(35.0, 0.05, 35.0)
 	var target: Node = enemies[0]
-	target.global_position = player.global_position + Vector3(3.0, 0.05, 0.0)
+	target.global_position = player.global_position + Vector3(40.0, 0.05, 0.0)
 	target.velocity = Vector3.ZERO
 	scene._use_skill(1)
-	_check(target.velocity.x > 0.0, "shock wave knocks nearby enemies away")
-	var wide_target: Node = enemies[4]
-	wide_target.global_position = player.global_position + Vector3(15.0, 0.05, 0.0)
-	wide_target.velocity = Vector3.ZERO
+	_check(target.velocity.x > 0.0, "force push reaches half the arena radius")
+	var effects_during_cooldown: int = get_nodes_in_group("skill_effects").size()
 	scene._use_skill(1)
-	_check(wide_target.velocity.x > 0.0, "shock wave reaches the widened radius")
+	_check(get_nodes_in_group("skill_effects").size() == effects_during_cooldown and is_equal_approx(scene.skill_cooldowns[0], 60.0), "force push cannot be reused during its one-minute cooldown")
+	target.global_position = Vector3(44.0, 0.05, 44.0)
 	scene._use_skill(2)
-	_check(target.freeze_timer >= 3.9, "frost nova freezes nearby enemies")
+	_check(target.freeze_timer >= 3.9, "frost nova freezes enemies across the arena")
 	_check(get_nodes_in_group("frost_nova_visuals").size() == 1, "frost nova creates an ice-ring visual")
 	var effects_before_nuke: int = get_nodes_in_group("skill_effects").size()
-	var health_before: float = target.health
+	var alive_before_explosion: int = scene._alive_enemy_count()
 	scene._use_skill(3)
-	_check(target.defeated or target.health < health_before - 800.0, "nuke deals high area damage")
-	_check(get_nodes_in_group("skill_effects").size() > effects_before_nuke, "nuke creates a fast expanding sphere")
+	_check(scene._alive_enemy_count() == 0, "explosion kills every enemy in the arena")
+	_check(scene.run_max_attack_kills == alive_before_explosion, "one-attack kill record counts the whole explosion")
+	_check(get_nodes_in_group("skill_effects").size() > effects_before_nuke, "explosion creates a visible expanding sphere")
+	_check(scene.skill_labels[2].text.contains("60s"), "HUD displays the explosion cooldown")
+	await process_frame
+	for i in 4:
+		scene._spawn_enemy()
+	var fresh_enemies := get_nodes_in_group("enemies")
 	scene._use_skill(4)
 	_check(get_nodes_in_group("vortices").size() == 1, "vortex skill launches a black pulling sphere")
 	_check(scene.VortexScript.PULL_RADIUS >= 150.0, "vortex reaches enemies across the whole map")
 	var vortex: Node = get_nodes_in_group("vortices")[0]
 	vortex.set_physics_process(false)
-	var vortex_target: Node = enemies[2]
+	var vortex_target: Node = fresh_enemies[0]
 	var vortex_core := Vector3(0.0, 0.05, 0.0)
 	vortex_target.global_position = Vector3(45.0, 0.05, 0.0)
 	for frame in 240:
@@ -92,9 +97,9 @@ func _run() -> void:
 
 	var mega_count_before := get_nodes_in_group("mega_fireballs").size()
 	scene._fire_mega_fireball()
-	_check(get_nodes_in_group("mega_fireballs").size() == mega_count_before + 1, "Q ability launches a giant straight-flying fireball")
+	_check(get_nodes_in_group("mega_fireballs").size() == mega_count_before + 1, "mega-fireball action launches a giant straight-flying fireball")
 	var mega_fireball: Node3D = get_nodes_in_group("mega_fireballs")[0]
-	var mega_target: Node = enemies[3]
+	var mega_target: Node = fresh_enemies[1]
 	mega_target.global_position = mega_fireball.global_position + mega_fireball.direction * 6.0
 	await _physics_frames(20)
 	_check(not is_instance_valid(mega_target) or mega_target.defeated, "giant fireball kills enemies it touches without changing course")
@@ -147,7 +152,10 @@ func _run() -> void:
 	_check(magnet_blue, "magnet pickup and its world text are blue")
 
 	# Star power lasts five seconds, grants contact immunity, and kills on touch.
-	var star_target: Node = enemies[1]
+	if fresh_enemies.size() < 3 or not is_instance_valid(fresh_enemies[2]):
+		scene._spawn_enemy()
+		fresh_enemies = get_nodes_in_group("enemies")
+	var star_target: Node = fresh_enemies[fresh_enemies.size() - 1]
 	star_target.global_position = player.global_position + Vector3(0.5, 0.0, 0.0)
 	star_target.defeated = false
 	scene._on_pickup_collected("star", 1.0)

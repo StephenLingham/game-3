@@ -1,6 +1,6 @@
 extends CharacterBody3D
 
-signal died(enemy: Node, position: Vector3)
+signal died(enemy: Node, position: Vector3, attack_id: int, damage_amount: float)
 
 var target: Node3D
 var health := 300.0
@@ -16,13 +16,19 @@ var freeze_timer := 0.0
 var defeated := false
 var vortex_hold_timer := 0.0
 var vortex_hold_point := Vector3.ZERO
+var enemy_type := 0
+var body_material: StandardMaterial3D
 
-func setup(player: Node3D, health_multiplier := 1.0) -> void:
+func setup(player: Node3D, type_index := 0, fixed_health := 100.0, color := Color("ff2020")) -> void:
 	target = player
-	max_health = 300.0 * health_multiplier
+	enemy_type = type_index
+	max_health = fixed_health
 	health = max_health
-	move_speed *= 1.0 + minf(0.35, (health_multiplier - 1.0) * 0.15)
-	scale = Vector3.ONE * (1.0 + minf(0.45, (health_multiplier - 1.0) * 0.18))
+	move_speed = 3.2 + float(type_index) * 0.10
+	scale = Vector3.ONE * (1.0 + float(type_index) * 0.035)
+	if is_instance_valid(body_material):
+		body_material.albedo_color = color
+		body_material.emission = color
 	_update_health_bar()
 
 func _ready() -> void:
@@ -44,7 +50,11 @@ func _build_cube() -> void:
 	var cube := BoxMesh.new()
 	cube.size = Vector3(1.35, 1.35, 1.35)
 	body.mesh = cube
-	body.material_override = _mat(Color("d95b54"))
+	body_material = _mat(Color("ff2020"))
+	body_material.emission_enabled = true
+	body_material.emission = Color("ff2020")
+	body_material.emission_energy_multiplier = 0.35
+	body.material_override = body_material
 	visual.add_child(body)
 	for x in [-0.32, 0.32]:
 		var eye := MeshInstance3D.new()
@@ -152,7 +162,7 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= 22.0 * delta
 	move_and_slide()
 
-func take_damage(amount: float, is_crit := false) -> void:
+func take_damage(amount: float, is_crit := false, attack_id := -1) -> void:
 	if defeated:
 		return
 	health -= amount
@@ -161,13 +171,13 @@ func take_damage(amount: float, is_crit := false) -> void:
 	if is_crit:
 		visual.scale = Vector3.ONE * 1.18
 	if health <= 0.0:
-		defeat()
+		defeat(attack_id, amount)
 
-func defeat() -> void:
+func defeat(attack_id := -1, damage_amount := 0.0) -> void:
 	if defeated:
 		return
 	defeated = true
-	died.emit(self, global_position + Vector3.UP * 0.5)
+	died.emit(self, global_position + Vector3.UP * 0.5, attack_id, damage_amount)
 	queue_free()
 
 func apply_knockback(origin: Vector3, force: float) -> void:

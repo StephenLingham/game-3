@@ -1,5 +1,7 @@
 extends CharacterBody3D
 
+signal damage_dealt(amount: float)
+
 var direction := Vector3.FORWARD
 var speed := 28.0
 var damage := 100.0
@@ -10,14 +12,16 @@ var lifetime := 5.0
 var owner_body: Node3D
 var already_hit: Dictionary = {}
 var homing_target: Node3D
+var attack_id := -1
 
-func setup(dir: Vector3, projectile_damage: float, radius: float, bounces: int, crit: float, shooter: Node3D) -> void:
+func setup(dir: Vector3, projectile_damage: float, radius: float, bounces: int, crit: float, shooter: Node3D, source_attack_id := -1) -> void:
 	direction = dir.normalized()
 	damage = projectile_damage
 	explosion_radius = radius
 	bounces_left = bounces
 	crit_chance = crit
 	owner_body = shooter
+	attack_id = source_attack_id
 
 func _ready() -> void:
 	add_to_group("projectiles")
@@ -114,7 +118,8 @@ func _damage_enemy(enemy: Node) -> void:
 	already_hit[enemy.get_instance_id()] = true
 	var crit := randf() < crit_chance
 	var dealt_damage := damage * (2.0 if crit else 1.0)
-	enemy.take_damage(dealt_damage, crit)
+	enemy.take_damage(dealt_damage, crit, attack_id)
+	damage_dealt.emit(dealt_damage)
 	_spawn_damage_number(enemy.global_position + Vector3.UP * 1.55, dealt_damage, crit)
 
 func _find_bounce_target() -> Node3D:
