@@ -98,6 +98,9 @@ func _run() -> void:
 	var mega_count_before := get_nodes_in_group("mega_fireballs").size()
 	scene._fire_mega_fireball()
 	_check(get_nodes_in_group("mega_fireballs").size() == mega_count_before + 1, "mega-fireball action launches a giant straight-flying fireball")
+	scene._fire_mega_fireball()
+	_check(get_nodes_in_group("mega_fireballs").size() == mega_count_before + 1 and is_equal_approx(scene.skill_cooldowns[4], 60.0), "mega fireball cannot be reused during its one-minute cooldown")
+	_check(scene.skill_labels[4].text.contains("60s"), "HUD displays the mega fireball cooldown")
 	var mega_fireball: Node3D = get_nodes_in_group("mega_fireballs")[0]
 	var mega_target: Node = fresh_enemies[1]
 	mega_target.global_position = mega_fireball.global_position + mega_fireball.direction * 6.0

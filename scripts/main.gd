@@ -59,7 +59,7 @@ var upgrade_active := false
 var game_over := false
 var pause_active := false
 var current_offers: Array[Dictionary] = []
-var skill_cooldowns := [0.0, 0.0, 0.0, 0.0]
+var skill_cooldowns := [0.0, 0.0, 0.0, 0.0, 0.0]
 var skill_labels: Array[Label] = []
 var skill_bars: Array[ProgressBar] = []
 var tutorial_overlay: ColorRect
@@ -345,14 +345,16 @@ func _on_player_fire(origin: Vector3, direction: Vector3) -> void:
 		projectile.setup(shot_direction, stats.damage, stats.radius, stats.bounces, stats.crit, player, attack_id)
 
 func _fire_mega_fireball() -> void:
-	if not is_instance_valid(player):
+	if not is_instance_valid(player) or skill_cooldowns[4] > 0.0:
 		return
+	skill_cooldowns[4] = SKILL_COOLDOWN
 	var projectile := MegaFireballScript.new()
 	projectile.process_mode = Node.PROCESS_MODE_PAUSABLE
 	projectile.position = player.muzzle.global_position
 	add_child(projectile)
 	projectile.setup(-player.camera.global_transform.basis.z, _begin_attack())
 	_show_pickup_message("Mega Fireball", Color("ff7b18"))
+	_update_hud()
 
 func _begin_attack() -> int:
 	var attack_id := next_attack_id
@@ -797,8 +799,8 @@ func _build_hud() -> void:
 	var skills_row := HBoxContainer.new()
 	skills_row.add_theme_constant_override("separation", 8)
 	info.add_child(skills_row)
-	var skill_names := ["Force Push", "Frost Nova", "Explosion", "Vortex"]
-	var skill_colors := [Color("7de9ff"), Color("68d9ff"), Color("ff6b24"), Color("9b55ff")]
+	var skill_names := ["Force Push", "Frost Nova", "Explosion", "Vortex", "Mega Fireball"]
+	var skill_colors := [Color("7de9ff"), Color("68d9ff"), Color("ff6b24"), Color("9b55ff"), Color("ff7b18")]
 	for i in skill_names.size():
 		var skill_bar := ProgressBar.new()
 		skill_bar.custom_minimum_size = Vector2(132, 32)
@@ -1020,7 +1022,7 @@ func _update_hud() -> void:
 	xp_label.text = "XP %d / %d   •   Pull %.1fm" % [int(xp), int(xp_needed), collection_radius]
 	if player.is_star_powered():
 		xp_label.text += "   •   Star %.1fs" % player.star_power_timer
-	var skill_names := ["Force Push", "Frost Nova", "Explosion", "Vortex"]
+	var skill_names := ["Force Push", "Frost Nova", "Explosion", "Vortex", "Mega Fireball"]
 	for i in mini(skill_labels.size(), skill_cooldowns.size()):
 		var remaining: float = skill_cooldowns[i]
 		skill_bars[i].value = SKILL_COOLDOWN - remaining
