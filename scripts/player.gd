@@ -4,14 +4,16 @@ signal fire_requested(origin: Vector3, direction: Vector3)
 signal hop_changed(chain: int, speed_multiplier: float)
 signal hurt(amount: float)
 
+const GameConsts = preload("res://scripts/consts.gd")
+
 const WALK_SPEED := 9.0
 const MAX_HOP_SPEED := 18.0
 const JUMP_VELOCITY := 7.6
 const MEGA_JUMP_VELOCITY := 15.5
 const LONG_JUMP_SPEED := 27.0
-const DASH_SPEED := 34.0
-const DASH_DURATION := 0.22
-const DASH_COOLDOWN := 0.55
+const DASH_SPEED := GameConsts.DASH_DISTANCE / GameConsts.DASH_DURATION
+const DASH_DURATION := GameConsts.DASH_DURATION
+const DASH_COOLDOWN := GameConsts.DASH_COOLDOWN
 const GROUND_ACCEL := 64.0
 const AIR_ACCEL := 22.0
 const GROUND_FRICTION := 48.0
@@ -38,11 +40,14 @@ var dash_direction := Vector3.ZERO
 var dash_hit_enemies := {}
 var burst_speed_timer := 0.0
 var star_power_timer := 0.0
+var star_overlay: ColorRect
+var star_label: Label
 
 func _ready() -> void:
 	collision_layer = 2
 	collision_mask = 1 | 4
 	_build_body()
+	_build_star_effect()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 func _build_body() -> void:
@@ -109,10 +114,10 @@ func _physics_process(delta: float) -> void:
 	if not alive:
 		return
 	fire_cooldown = maxf(0.0, fire_cooldown - delta)
-	dash_timer = maxf(0.0, dash_timer - delta)
 	dash_cooldown = maxf(0.0, dash_cooldown - delta)
 	burst_speed_timer = maxf(0.0, burst_speed_timer - delta)
 	star_power_timer = maxf(0.0, star_power_timer - delta)
+	_update_star_effect()
 	jump_buffer = maxf(0.0, jump_buffer - delta)
 
 	var was_grounded := is_on_floor()
@@ -164,7 +169,28 @@ func _physics_process(delta: float) -> void:
 		horizontal = horizontal.normalized() * speed_cap
 	velocity.x = horizontal.x
 	velocity.z = horizontal.z
-	move_and_slide()
+	if is_dashing():
+		var start := global_position
+		var motion := dash_direction * DASH_SPEED * minf(delta, dash_timer)
+		motion.y = 0.0
+		# Pass through enemies while retaining arena collision.
+		var previous_mask := collision_mask
+		collision_mask = 1
+		var wall_hit := move_and_collide(motion)
+		_split_dash_crowd(start, global_position)
+		var dash_velocity := velocity
+		velocity = Vector3(0.0, velocity.y, 0.0)
+		move_and_slide()
+		collision_mask = previous_mask
+		velocity.x = dash_velocity.x
+		velocity.z = dash_velocity.z
+		dash_timer = maxf(0.0, dash_timer - delta)
+		if (wall_hit != null and absf(wall_hit.get_normal().y) < 0.5) or dash_timer <= 0.0:
+			dash_timer = 0.0
+			velocity.x = 0.0
+			velocity.z = 0.0
+	else:
+		move_and_slide()
 	_handle_enemy_contacts()
 
 	if is_on_floor() and not was_grounded:
@@ -233,14 +259,30 @@ func _handle_enemy_contacts() -> void:
 			continue
 		if is_star_powered() and enemy.has_method("defeat"):
 			enemy.defeat()
-		elif is_dashing() and enemy.has_method("apply_knockback"):
-			var enemy_id := enemy.get_instance_id()
-			if not dash_hit_enemies.has(enemy_id):
-				dash_hit_enemies[enemy_id] = true
-				enemy.apply_knockback(global_position, 24.0)
+
+func _split_dash_crowd(start: Vector3, end: Vector3) -> void:
+	var side := dash_direction.cross(Vector3.UP).normalized()
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		if not is_instance_valid(enemy) or enemy.defeated or dash_hit_enemies.has(enemy.get_instance_id()):
+			continue
+		var center: Vector3 = enemy.global_position + Vector3.UP * 0.68 * enemy.scale.y
+		var closest := Geometry3D.get_closest_point_to_segment(center, start + Vector3.UP * 0.8, end + Vector3.UP * 0.8)
+		if center.distance_to(closest) > GameConsts.DASH_CONTACT_RADIUS + 0.96 * enemy.scale.x:
+			continue
+		dash_hit_enemies[enemy.get_instance_id()] = true
+		if is_star_powered():
+			enemy.defeat()
+		else:
+			var side_offset := (center - closest).dot(side)
+			var sign_side := 1.0 if side_offset > 0.0 else -1.0
+			# Centerline enemies alternate sides.
+			if is_zero_approx(side_offset):
+				sign_side = 1.0 if dash_hit_enemies.size() % 2 == 0 else -1.0
+			enemy.apply_directional_knockback(side * sign_side, GameConsts.DASH_KNOCKBACK_FORCE)
 
 func activate_star_power(duration := 5.0) -> void:
 	star_power_timer = maxf(star_power_timer, duration)
+	_update_star_effect()
 
 func is_dashing() -> bool:
 	return dash_timer > 0.0
@@ -270,3 +312,33 @@ func get_aim_point(distance := 100.0) -> Vector3:
 	query.exclude = [self]
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	return hit.position if hit else to
+
+func _build_star_effect() -> void:
+	var canvas := CanvasLayer.new()
+	canvas.layer = 2
+	add_child(canvas)
+	star_overlay = ColorRect.new()
+	star_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	star_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var shader := Shader.new()
+	shader.code = "shader_type canvas_item; void fragment() { vec2 p = UV * 2.0 - 1.0; float edge = smoothstep(0.45, 1.0, max(abs(p.x), abs(p.y))); vec3 rainbow = 0.5 + 0.5 * cos(TIME * 5.0 + vec3(0.0, 2.0, 4.0) + UV.x * 4.0); COLOR = vec4(rainbow, edge * 0.32); }"
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	star_overlay.material = mat
+	canvas.add_child(star_overlay)
+	star_label = Label.new()
+	star_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	star_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	star_label.position = Vector2(-180, -110)
+	star_label.size = Vector2(360, 40)
+	star_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	star_label.add_theme_font_size_override("font_size", 26)
+	star_label.add_theme_color_override("font_color", Color("fff34d"))
+	canvas.add_child(star_label)
+	_update_star_effect()
+
+func _update_star_effect() -> void:
+	if is_instance_valid(star_overlay):
+		star_overlay.visible = is_star_powered()
+		star_label.visible = is_star_powered()
+		star_label.text = "★ STAR POWER  %.1fs ★" % star_power_timer

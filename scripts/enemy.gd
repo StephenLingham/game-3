@@ -17,6 +17,7 @@ var defeated := false
 var vortex_hold_timer := 0.0
 var vortex_hold_point := Vector3.ZERO
 var enemy_type := 0
+var ice_shell: MeshInstance3D
 var body_material: StandardMaterial3D
 
 func setup(player: Node3D, type_index := 0, fixed_health := 100.0, color := Color("ff2020")) -> void:
@@ -72,6 +73,7 @@ func _build_cube() -> void:
 		pupil.material_override = _mat(Color("18202a"))
 		eye.add_child(pupil)
 	_build_health_bar()
+	_build_ice_shell()
 
 func _build_health_bar() -> void:
 	var background := MeshInstance3D.new()
@@ -133,6 +135,7 @@ func _physics_process(delta: float) -> void:
 		return
 	touch_cooldown = maxf(0.0, touch_cooldown - delta)
 	freeze_timer = maxf(0.0, freeze_timer - delta)
+	ice_shell.visible = freeze_timer > 0.0
 	vortex_hold_timer = maxf(0.0, vortex_hold_timer - delta)
 	flash_timer = maxf(0.0, flash_timer - delta)
 	visual.scale = Vector3.ONE * (1.08 if flash_timer > 0.0 else 1.0)
@@ -188,8 +191,13 @@ func apply_knockback(origin: Vector3, force: float) -> void:
 	velocity += direction.normalized() * force
 	velocity.y = maxf(velocity.y, force * 0.22)
 
+func apply_directional_knockback(direction: Vector3, force: float) -> void:
+	velocity.x = direction.x * force
+	velocity.z = direction.z * force
+
 func freeze(duration: float) -> void:
 	freeze_timer = maxf(freeze_timer, duration)
+	ice_shell.visible = freeze_timer > 0.0
 
 func pull_toward(point: Vector3, force: float, delta: float) -> void:
 	var direction := point - global_position
@@ -209,3 +217,20 @@ func pull_toward(point: Vector3, force: float, delta: float) -> void:
 	var step := minf(pull_speed * delta, distance - CAPTURE_RADIUS)
 	global_position += direction.normalized() * step
 	velocity = direction.normalized() * pull_speed
+
+func _build_ice_shell() -> void:
+	ice_shell = MeshInstance3D.new()
+	ice_shell.name = "FrozenIce"
+	var box := BoxMesh.new()
+	box.size = Vector3.ONE * 1.6
+	ice_shell.mesh = box
+	ice_shell.position.y = 0.68
+	var mat := StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(0.25, 0.8, 1.0, 0.45)
+	mat.emission_enabled = true
+	mat.emission = Color("5bcfff")
+	mat.emission_energy_multiplier = 1.2
+	ice_shell.material_override = mat
+	ice_shell.visible = false
+	add_child(ice_shell)

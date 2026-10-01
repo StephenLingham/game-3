@@ -1,5 +1,6 @@
 extends Node3D
 
+const BossScript = preload("res://scripts/boss.gd")
 const PlayerScript = preload("res://scripts/player.gd")
 const EnemyScript = preload("res://scripts/enemy.gd")
 const FireballScript = preload("res://scripts/fireball.gd")
@@ -7,9 +8,11 @@ const PickupScript = preload("res://scripts/pickup.gd")
 const VortexScript = preload("res://scripts/vortex.gd")
 const MegaFireballScript = preload("res://scripts/mega_fireball.gd")
 
-const ARENA_HALF := 48.0
+const GameConsts = preload("res://scripts/consts.gd")
+
+const ARENA_HALF := GameConsts.ARENA_HALF
 const ARENA_FULL_RADIUS := ARENA_HALF * 1.45
-const RUN_DURATION := 600.0
+const RUN_DURATION := GameConsts.RUN_DURATION
 const HEALTH_REGEN_PER_SECOND := 2.0
 const STAR_SPAWN_INTERVAL := 120.0
 const MAGNET_SPAWN_INTERVAL := 14.0
@@ -56,6 +59,9 @@ var star_spawn_clock := STAR_SPAWN_INTERVAL
 var elapsed := 0.0
 var kills := 0
 var upgrade_active := false
+var boss: CharacterBody3D
+var boss_spawned := false
+var boss_defeated := false
 var game_over := false
 var pause_active := false
 var current_offers: Array[Dictionary] = []
@@ -106,8 +112,14 @@ func _process(delta: float) -> void:
 		return
 	elapsed += delta
 	player_health = minf(100.0, player_health + HEALTH_REGEN_PER_SECOND * delta)
+	if not boss_spawned and elapsed >= GameConsts.BOSS_SPAWN_TIME:
+		_spawn_boss()
 	if elapsed >= RUN_DURATION:
-		_win_run()
+		if boss_defeated:
+			_win_run()
+		else:
+			_game_over()
+			upgrade_title.text = "Run Failed — Boss Still Alive\n\nDefeat the final boss before 10:00.\n\nPress R To Run Again"
 		return
 	enemy_spawn_clock -= delta
 	relic_spawn_clock -= delta
@@ -276,8 +288,8 @@ func _spawn_enemy() -> void:
 
 func _enemy_spawn_interval(at_time: float) -> float:
 	var progress := clampf(at_time / RUN_DURATION, 0.0, 1.0)
-	# Four times the previous rate, still with no active-enemy cap.
-	return lerpf(0.25, 0.0375, pow(progress, 0.75))
+	# Rate-only spawning, with no active-enemy cap.
+	return lerpf(GameConsts.ENEMY_SPAWN_INTERVAL_START, GameConsts.ENEMY_SPAWN_INTERVAL_END, pow(progress, GameConsts.ENEMY_SPAWN_RAMP_EXPONENT))
 
 func _enemy_health_multiplier(at_time: float) -> float:
 	return _enemy_health_for_type(_primary_enemy_type(at_time)) / ENEMY_HEALTH[0]
@@ -420,7 +432,8 @@ func _use_skill(skill_number: int) -> void:
 		3:
 			for enemy in get_tree().get_nodes_in_group("enemies"):
 				if is_instance_valid(enemy) and not enemy.defeated:
-					enemy.take_damage(enemy.max_health, false, attack_id)
+					var damage: float = GameConsts.BOSS_SPECIAL_HIT_DAMAGE if enemy.is_in_group("bosses") else enemy.max_health
+					enemy.take_damage(damage, false, attack_id)
 			_spawn_skill_pulse(center + Vector3.UP * 0.7, ARENA_FULL_RADIUS, Color("ff6b24"), 0.55, 0.72)
 			_show_pickup_message("Explosion   •   Arena Cleared")
 		4:
@@ -705,7 +718,7 @@ func _win_run() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	for child in cards_row.get_children():
 		child.queue_free()
-	upgrade_title.text = "You Survived!\n\n10:00 Complete  •  Level %d  •  %d Cubes Defeated\n\nPress R To Play Again" % [level, kills]
+	upgrade_title.text = "Victory — Boss Defeated!\n\n10:00 Complete  •  Level %d  •  %d Cubes Defeated\n\nPress R To Play Again" % [level, kills]
 	upgrade_overlay.visible = true
 
 func _build_hud() -> void:
@@ -1032,3 +1045,24 @@ func _update_hud() -> void:
 	var spawn_rate := 1.0 / _enemy_spawn_interval(elapsed)
 	var primary_type := _primary_enemy_type(elapsed)
 	wave_label.text = "Wave %d/10  •  %d HP  •  %d Alive  •  %d Defeated  •  Spawn %.1f/s  •  %02d:%02d Remaining" % [primary_type + 1, int(ENEMY_HEALTH[primary_type]), _alive_enemy_count(), kills, spawn_rate, run_remaining / 60, run_remaining % 60]
+	if boss_spawned:
+		wave_label.text += "\nBoss defeated" if boss_defeated else "\nFINAL BOSS: %d / %d HP" % [int(boss.health), int(boss.max_health)]
+
+func _spawn_boss() -> void:
+	boss_spawned = true
+	boss = BossScript.new()
+	boss.name = "FinalBoss"
+	boss.add_to_group("enemies")
+	boss.process_mode = Node.PROCESS_MODE_PAUSABLE
+	var forward: Vector3 = -player.global_transform.basis.z
+	var spawn: Vector3 = player.global_position + forward * 25.0
+	spawn.x = clampf(spawn.x, -40.0, 40.0)
+	spawn.z = clampf(spawn.z, -40.0, 40.0)
+	boss.position = Vector3(spawn.x, 0.05, spawn.z)
+	add_child(boss)
+	boss.setup(player, 9, GameConsts.BOSS_HEALTH, Color("b92cff"))
+	boss.scale = Vector3.ONE * 3.0
+	boss.move_speed = GameConsts.BOSS_SPEED
+	boss.died.connect(_on_enemy_died)
+	boss.died.connect(func(_enemy: Node, _pos: Vector3, _attack: int, _damage: float): boss_defeated = true)
+	_show_pickup_message("FINAL BOSS\nDefeat it before 10:00!", Color("ffba38"))

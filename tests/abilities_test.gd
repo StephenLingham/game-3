@@ -12,8 +12,8 @@ func _run() -> void:
 	await _physics_frames(3)
 
 	# Spawning remains rate-only and is now four times faster than before.
-	_check(is_equal_approx(scene._enemy_spawn_interval(0.0), 0.25), "opening enemy spawn rate is quadrupled")
-	_check(is_equal_approx(scene._enemy_spawn_interval(600.0), 0.0375), "late enemy spawn rate is quadrupled")
+	_check(is_equal_approx(scene._enemy_spawn_interval(0.0), scene.GameConsts.ENEMY_SPAWN_INTERVAL_START), "opening enemy spawn rate uses design constants")
+	_check(is_equal_approx(scene._enemy_spawn_interval(600.0), scene.GameConsts.ENEMY_SPAWN_INTERVAL_END), "late enemy spawn rate uses design constants")
 	var count_before: int = get_nodes_in_group("enemies").size()
 	scene.enemy_spawn_clock = 0.0
 	scene._process(0.01)
@@ -51,6 +51,9 @@ func _run() -> void:
 	scene.player_health = 50.0
 	player.take_damage(12.0)
 	_check(player.is_dashing() and is_equal_approx(scene.player_health, 50.0), "dash works in any movement state and blocks contact damage")
+
+	player.dash_timer = 0.0
+	player.velocity = Vector3.ZERO
 
 	var enemies := get_nodes_in_group("enemies")
 	for enemy in enemies:
@@ -135,8 +138,8 @@ func _run() -> void:
 		for child in pickup.get_children():
 			if child is MeshInstance3D and child.material_override is StandardMaterial3D:
 				var xp_color: Color = child.material_override.albedo_color
-				silver_xp = absf(xp_color.r - xp_color.g) < 0.08 and absf(xp_color.g - xp_color.b) < 0.08
-	_check(silver_xp, "XP pickups are silver")
+				silver_xp = xp_color.b > xp_color.r and xp_color.b > xp_color.g
+	_check(silver_xp, "XP pickups are blue")
 
 	scene._spawn_powerup("star")
 	scene._spawn_powerup("magnet")
@@ -150,9 +153,9 @@ func _run() -> void:
 		elif pickup.kind == "magnet":
 			for child in pickup.get_children():
 				if child is Label3D:
-					magnet_blue = child.modulate.b > child.modulate.r
+					magnet_blue = child.modulate.r > child.modulate.b
 	_check(star_shaped, "star power pickup uses a five-point star mesh")
-	_check(magnet_blue, "magnet pickup and its world text are blue")
+	_check(magnet_blue, "magnet pickup and its world text are red")
 
 	# Star power lasts five seconds, grants contact immunity, and kills on touch.
 	if fresh_enemies.size() < 3 or not is_instance_valid(fresh_enemies[2]):

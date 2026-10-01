@@ -26,14 +26,19 @@ func _ready() -> void:
 		"xp": box.size = Vector3.ONE * 0.48
 		"relic": box.size = Vector3.ONE * 0.75
 		_: box.size = Vector3.ONE * 0.95
-	collision.shape = box
+	if kind == "star":
+		collision.shape = box
+	else:
+		var sphere := SphereShape3D.new()
+		sphere.radius = box.size.x * 0.5
+		collision.shape = sphere
 	add_child(collision)
 	var mat := StandardMaterial3D.new()
-	var color := Color("c7cdd6")
+	var color := Color("258bff")
 	match kind:
 		"relic": color = Color("ffe66b")
 		"star": color = Color("fff34d")
-		"magnet": color = Color("4b9cff")
+		"magnet": color = Color("ff3030")
 	mat.albedo_color = color
 	mat.emission_enabled = true
 	mat.emission = color
@@ -43,9 +48,10 @@ func _ready() -> void:
 		_build_star_visual(mat)
 	else:
 		var mesh := MeshInstance3D.new()
-		var cube := BoxMesh.new()
-		cube.size = box.size
-		mesh.mesh = cube
+		var sphere := SphereMesh.new()
+		sphere.radius = box.size.x * 0.5
+		sphere.height = box.size.x
+		mesh.mesh = sphere
 		mesh.material_override = mat
 		add_child(mesh)
 	if kind == "relic":
@@ -54,18 +60,11 @@ func _ready() -> void:
 		_build_star_beacon(mat)
 	elif kind == "magnet":
 		_build_powerup_beacon(mat, "XP Magnet\nPull Every XP Orb")
+	if kind == "xp":
+		global_position.y = 0.24
 	base_y = global_position.y
 
 func _build_relic_beacon(material: StandardMaterial3D) -> void:
-	# A large rotating plus, warm light, and billboard label distinguish this
-	# permanent-stat relic from the small cyan XP cubes.
-	for size in [Vector3(1.45, 0.20, 0.20), Vector3(0.20, 1.45, 0.20)]:
-		var bar := MeshInstance3D.new()
-		var bar_mesh := BoxMesh.new()
-		bar_mesh.size = size
-		bar.mesh = bar_mesh
-		bar.material_override = material
-		add_child(bar)
 	var light := OmniLight3D.new()
 	light.light_color = Color("ffd84d")
 	light.light_energy = 3.0
@@ -84,14 +83,6 @@ func _build_relic_beacon(material: StandardMaterial3D) -> void:
 	add_child(label)
 
 func _build_powerup_beacon(material: StandardMaterial3D, text: String) -> void:
-	# Crossed blue beams make the map-wide magnet easy to spot.
-	for size in [Vector3(1.7, 0.18, 0.18), Vector3(0.18, 1.7, 0.18), Vector3(0.18, 0.18, 1.7)]:
-		var bar := MeshInstance3D.new()
-		var bar_mesh := BoxMesh.new()
-		bar_mesh.size = size
-		bar.mesh = bar_mesh
-		bar.material_override = material
-		add_child(bar)
 	_add_powerup_light_and_label(material, text)
 
 func _build_star_visual(material: StandardMaterial3D) -> void:
@@ -118,6 +109,7 @@ func _build_star_visual(material: StandardMaterial3D) -> void:
 		add_child(star)
 
 func _build_star_beacon(material: StandardMaterial3D) -> void:
+	_build_star_particles()
 	_add_powerup_light_and_label(material, "Star Power\n3× Speed  •  Contact Kills")
 
 func _add_powerup_light_and_label(material: StandardMaterial3D, text: String) -> void:
@@ -141,7 +133,8 @@ func _add_powerup_light_and_label(material: StandardMaterial3D, text: String) ->
 func _physics_process(delta: float) -> void:
 	age += delta
 	rotate_y(delta * (2.4 if kind == "xp" else 1.2))
-	position.y = base_y + sin(age * 3.0) * 0.14
+	if kind != "xp" and not magnetized:
+		position.y = base_y + sin(age * 3.0) * 0.14
 	if is_instance_valid(target):
 		var offset := target.global_position + Vector3.UP - global_position
 		if magnetized:
@@ -157,3 +150,34 @@ func _on_body_entered(body: Node3D) -> void:
 	if body == target:
 		collected.emit(kind, value)
 		queue_free()
+
+func _build_star_particles() -> void:
+	var sparks := CPUParticles3D.new()
+	sparks.name = "StarSparkles"
+	sparks.amount = 80
+	sparks.lifetime = 1.6
+	sparks.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	sparks.emission_sphere_radius = 0.9
+	sparks.direction = Vector3.UP
+	sparks.spread = 65.0
+	sparks.initial_velocity_min = 0.8
+	sparks.initial_velocity_max = 2.8
+	sparks.gravity = Vector3(0, 0.3, 0)
+	sparks.scale_amount_min = 0.04
+	sparks.scale_amount_max = 0.12
+	var gradient := Gradient.new()
+	gradient.colors = PackedColorArray([Color("fff5ad"), Color("ffac25"), Color(1, 0.3, 0.8, 0)])
+	sparks.color_ramp = gradient
+	var mesh := SphereMesh.new()
+	mesh.radius = 1.0
+	mesh.height = 2.0
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.vertex_color_use_as_albedo = true
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.emission_enabled = true
+	mat.emission = Color("ffcf45")
+	mat.emission_energy_multiplier = 3.0
+	mesh.material = mat
+	sparks.mesh = mesh
+	add_child(sparks)
