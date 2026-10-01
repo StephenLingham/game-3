@@ -61,6 +61,11 @@ func _physics_process(delta: float) -> void:
 			continue
 		var distance: float = enemy.global_position.distance_to(global_position)
 		if distance < PULL_RADIUS:
-			enemy.pull_toward(global_position, PULL_FORCE, delta)
+			enemy.pull_toward(global_position, PULL_FORCE, delta, self)
 	if life_timer <= 0.0:
 		queue_free()
+
+func _exit_tree() -> void:
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		if is_instance_valid(enemy) and enemy.has_method("release_vortex"):
+			enemy.release_vortex(self)

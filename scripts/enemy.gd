@@ -1,5 +1,7 @@
 extends CharacterBody3D
 
+const EnemyConsts = preload("res://scripts/consts.gd")
+
 signal died(enemy: Node, position: Vector3, attack_id: int, damage_amount: float)
 
 var target: Node3D
@@ -16,6 +18,12 @@ var freeze_timer := 0.0
 var defeated := false
 var vortex_hold_timer := 0.0
 var vortex_hold_point := Vector3.ZERO
+var vortex_source: Node3D
+var vortex_orbit_angle := 0.0
+var vortex_orbit_radius := 1.0
+var vortex_orbit_speed := 0.0
+var vortex_orbit_height := 1.5
+var vortex_spin := Vector3.ZERO
 var enemy_type := 0
 var ice_shell: MeshInstance3D
 var body_material: StandardMaterial3D
@@ -136,16 +144,21 @@ func _physics_process(delta: float) -> void:
 	touch_cooldown = maxf(0.0, touch_cooldown - delta)
 	freeze_timer = maxf(0.0, freeze_timer - delta)
 	ice_shell.visible = freeze_timer > 0.0
+	var was_held := vortex_hold_timer > 0.0
 	vortex_hold_timer = maxf(0.0, vortex_hold_timer - delta)
+	if was_held and vortex_hold_timer <= 0.0:
+		visual.rotation = Vector3.ZERO
+		vortex_source = null
 	flash_timer = maxf(0.0, flash_timer - delta)
 	visual.scale = Vector3.ONE * (1.08 if flash_timer > 0.0 else 1.0)
 	if vortex_hold_timer > 0.0:
-		global_position.x = move_toward(global_position.x, vortex_hold_point.x, 32.0 * delta)
-		global_position.z = move_toward(global_position.z, vortex_hold_point.z, 32.0 * delta)
 		velocity = Vector3.ZERO
 		return
 	if freeze_timer > 0.0:
-		velocity = Vector3.ZERO
+		velocity.x = 0.0
+		velocity.z = 0.0
+		velocity.y -= 22.0 * delta
+		move_and_slide()
 		return
 	var offset := target.global_position - global_position
 	offset.y = 0
@@ -199,24 +212,96 @@ func freeze(duration: float) -> void:
 	freeze_timer = maxf(freeze_timer, duration)
 	ice_shell.visible = freeze_timer > 0.0
 
-func pull_toward(point: Vector3, force: float, delta: float) -> void:
-	var direction := point - global_position
-	direction.y = 0.0
-	var distance := direction.length()
-	const CAPTURE_RADIUS := 1.35
-	if distance <= CAPTURE_RADIUS:
+func pull_toward(point: Vector3, force: float, delta: float, source: Node3D = null) -> void:
+	if defeated:
+		return
+	var offset := point - global_position
+	var distance := offset.length()
+	if vortex_hold_timer > 0.0 or distance <= 1.36:
+		if vortex_hold_timer <= 0.0 or vortex_source != source:
+			vortex_source = source
+			vortex_orbit_angle = randf() * TAU
+			vortex_orbit_radius = randf_range(EnemyConsts.VORTEX_ORBIT_RADIUS_MIN, EnemyConsts.VORTEX_ORBIT_RADIUS_MAX)
+			vortex_orbit_speed = randf_range(EnemyConsts.VORTEX_ORBIT_SPEED_MIN, EnemyConsts.VORTEX_ORBIT_SPEED_MAX) * (-1.0 if randf() < 0.5 else 1.0)
+			vortex_orbit_height = randf_range(0.8, 2.0)
+			vortex_spin = Vector3(randf_range(-3, 3), randf_range(-3, 3), randf_range(-3, 3))
 		vortex_hold_point = point
 		vortex_hold_timer = 0.16
-		global_position.x = move_toward(global_position.x, point.x, 32.0 * delta)
-		global_position.z = move_toward(global_position.z, point.z, 32.0 * delta)
+		vortex_orbit_angle += vortex_orbit_speed * delta
+		global_position = point + Vector3(cos(vortex_orbit_angle) * vortex_orbit_radius, vortex_orbit_height, sin(vortex_orbit_angle) * vortex_orbit_radius)
+		visual.rotation += vortex_spin * delta
 		velocity = Vector3.ZERO
 		return
-	# The distance-limited step cannot overshoot the capture zone, so enemies
-	# converge on the core instead of being accelerated through it.
 	var pull_speed := clampf(distance * 1.8, 12.0, force)
-	var step := minf(pull_speed * delta, distance - CAPTURE_RADIUS)
-	global_position += direction.normalized() * step
-	velocity = direction.normalized() * pull_speed
+	var step := minf(pull_speed * delta, distance - 1.35)
+	global_position += offset.normalized() * step
+	velocity = offset.normalized() * pull_speed
+
+func release_vortex(source: Node3D) -> void:
+	if vortex_source != source:
+		return
+	vortex_source = null
+	vortex_hold_timer = 0.0
+	visual.rotation = Vector3.ZERO
+	velocity = Vector3.ZERO
+
+func take_explosion_damage(amount: float, attack_id: int) -> void:
+	if not defeated and amount >= health:
+		_spawn_explosion_death_particles()
+	take_damage(amount, false, attack_id)
+
+func _spawn_explosion_death_particles() -> void:
+	# Detached smoke survives the enemy, then frees itself when it fades away.
+	var smoke := CPUParticles3D.new()
+	smoke.add_to_group("explosion_death_effects")
+	smoke.position = global_position + Vector3.UP * 0.68 * scale.y
+	smoke.amount = EnemyConsts.EXPLOSION_DEATH_PARTICLES
+	smoke.lifetime = 2.2
+	smoke.one_shot = true
+	smoke.explosiveness = 0.9
+	smoke.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	smoke.emission_sphere_radius = 0.45 * scale.x
+	smoke.direction = Vector3.UP
+	smoke.spread = 25.0
+	smoke.initial_velocity_min = 0.6
+	smoke.initial_velocity_max = 1.4
+	smoke.gravity = Vector3(0, 0.3, 0)
+	smoke.scale_amount_min = 0.55
+	smoke.scale_amount_max = 1.0
+	var expansion := Curve.new()
+	expansion.add_point(Vector2(0.0, 0.4))
+	expansion.add_point(Vector2(1.0, 1.0))
+	smoke.scale_amount_curve = expansion
+	var fade := Gradient.new()
+	fade.offsets = PackedFloat32Array([0.0, 0.15, 0.5, 1.0])
+	fade.colors = PackedColorArray([Color(0.32, 0.33, 0.36, 0), Color(0.32, 0.33, 0.36, 0.55), Color(0.5, 0.51, 0.54, 0.3), Color(0.65, 0.66, 0.68, 0)])
+	smoke.color_ramp = fade
+	# A soft radial texture removes hard particle edges.
+	var softness := Gradient.new()
+	softness.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
+	softness.colors = PackedColorArray([Color.WHITE, Color(1, 1, 1, 0.45), Color(1, 1, 1, 0)])
+	var texture := GradientTexture2D.new()
+	texture.width = 64
+	texture.height = 64
+	texture.gradient = softness
+	texture.fill = GradientTexture2D.FILL_RADIAL
+	texture.fill_from = Vector2(0.5, 0.5)
+	texture.fill_to = Vector2(1.0, 0.5)
+	var mesh := QuadMesh.new()
+	mesh.size = Vector2(1.6, 1.6)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.vertex_color_use_as_albedo = true
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_texture = texture
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mesh.material = mat
+	smoke.mesh = mesh
+	smoke.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	get_parent().add_child(smoke)
+	smoke.finished.connect(smoke.queue_free)
+	smoke.restart()
 
 func _build_ice_shell() -> void:
 	ice_shell = MeshInstance3D.new()

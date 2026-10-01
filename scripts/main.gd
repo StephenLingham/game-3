@@ -433,7 +433,7 @@ func _use_skill(skill_number: int) -> void:
 			for enemy in get_tree().get_nodes_in_group("enemies"):
 				if is_instance_valid(enemy) and not enemy.defeated:
 					var damage: float = GameConsts.BOSS_SPECIAL_HIT_DAMAGE if enemy.is_in_group("bosses") else enemy.max_health
-					enemy.take_damage(damage, false, attack_id)
+					enemy.take_explosion_damage(damage, attack_id)
 			_spawn_skill_pulse(center + Vector3.UP * 0.7, ARENA_FULL_RADIUS, Color("ff6b24"), 0.55, 0.72)
 			_show_pickup_message("Explosion   •   Arena Cleared")
 		4:

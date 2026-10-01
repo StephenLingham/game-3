@@ -27,10 +27,10 @@ func _run() -> void:
 	await physics_frame
 	var start: Vector3 = player.global_position
 	player._start_dash()
-	for i in 14:
+	for i in ceili(player.DASH_DURATION * 60.0) + 1:
 		player._physics_process(1.0 / 60.0)
 	var distance: float = Vector2(player.position.x - start.x, player.position.z - start.z).length()
-	if absf(distance - 48.0) > 0.01:
+	if absf(distance - player.GameConsts.DASH_DISTANCE) > 0.01:
 		push_error("Wrong dash distance: %s" % distance)
 		quit(1)
 		return
@@ -40,11 +40,11 @@ func _run() -> void:
 		return
 	player.global_position = Vector3(0, 0.05, -40)
 	player._start_dash()
-	for i in 14:
+	for i in ceili(player.DASH_DURATION * 60.0) + 1:
 		player._physics_process(1.0 / 60.0)
 	if player.position.z < -47.1:
 		push_error("Dash crossed arena wall")
 		quit(1)
 		return
-	print("DASH TEST PASSED: 48-unit travel, swept crowd splitting, wall collision")
+	print("DASH TEST PASSED: configured dash distance, swept crowd splitting, wall collision")
 	quit(0)
