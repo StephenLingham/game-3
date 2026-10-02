@@ -301,6 +301,9 @@ func _enemy_health_for_type(enemy_type: int) -> float:
 	return ENEMY_HEALTH[clampi(enemy_type, 0, ENEMY_HEALTH.size() - 1)]
 
 func _choose_enemy_type(at_time: float) -> int:
+	# The ancient stone golem is the sole opening enemy type.
+	if at_time < 60.0:
+		return 0
 	var primary := _primary_enemy_type(at_time)
 	var roll := randf()
 	if roll < 0.15 and primary > 0:
@@ -707,7 +710,7 @@ func _game_over() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	for child in cards_row.get_children():
 		child.queue_free()
-	upgrade_title.text = "Run Over\n\nLevel %d  •  %d Cubes Defeated\n\nPress R To Run Again" % [level, kills]
+	upgrade_title.text = "Run Over\n\nLevel %d  •  %d Enemies Defeated\n\nPress R To Run Again" % [level, kills]
 	upgrade_overlay.visible = true
 
 func _win_run() -> void:
@@ -718,7 +721,7 @@ func _win_run() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	for child in cards_row.get_children():
 		child.queue_free()
-	upgrade_title.text = "Victory — Boss Defeated!\n\n10:00 Complete  •  Level %d  •  %d Cubes Defeated\n\nPress R To Play Again" % [level, kills]
+	upgrade_title.text = "Victory — Boss Defeated!\n\n10:00 Complete  •  Level %d  •  %d Enemies Defeated\n\nPress R To Play Again" % [level, kills]
 	upgrade_overlay.visible = true
 
 func _build_hud() -> void:
