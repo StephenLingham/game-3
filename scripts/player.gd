@@ -6,11 +6,11 @@ signal hurt(amount: float)
 
 const GameConsts = preload("res://scripts/consts.gd")
 
-const WALK_SPEED := 9.0
-const MAX_HOP_SPEED := 18.0
-const JUMP_VELOCITY := 7.6
-const MEGA_JUMP_VELOCITY := 15.5
-const LONG_JUMP_SPEED := 27.0
+const WALK_SPEED := GameConsts.PLAYER_WALK_SPEED
+const MAX_HOP_SPEED := GameConsts.PLAYER_MAX_HOP_SPEED
+const JUMP_VELOCITY := GameConsts.PLAYER_JUMP_VELOCITY
+const MEGA_JUMP_VELOCITY := GameConsts.PLAYER_MEGA_JUMP_VELOCITY
+const LONG_JUMP_SPEED := GameConsts.PLAYER_LONG_JUMP_SPEED
 const DASH_SPEED := GameConsts.DASH_DISTANCE / GameConsts.DASH_DURATION
 const DASH_DURATION := GameConsts.DASH_DURATION
 const DASH_COOLDOWN := GameConsts.DASH_COOLDOWN
@@ -29,8 +29,9 @@ var coyote_timer := 0.0
 var jump_buffer := 0.0
 var grounded_timer := 0.0
 var fire_cooldown := 0.0
-var attack_interval := 0.65
+var attack_interval := GameConsts.BASE_ATTACK_INTERVAL
 var alive := true
+var hurt_cooldown := 0.0
 var mouse_sensitivity := 0.0022
 var mega_jump_active := false
 var mega_air_jumps_remaining := 0
@@ -113,6 +114,7 @@ func _apply_mouse_look(relative_motion: Vector2) -> void:
 func _physics_process(delta: float) -> void:
 	if not alive:
 		return
+	hurt_cooldown = maxf(0.0, hurt_cooldown - delta)
 	fire_cooldown = maxf(0.0, fire_cooldown - delta)
 	dash_cooldown = maxf(0.0, dash_cooldown - delta)
 	burst_speed_timer = maxf(0.0, burst_speed_timer - delta)
@@ -149,7 +151,7 @@ func _physics_process(delta: float) -> void:
 	var input_vec := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var wish_dir := (transform.basis * Vector3(input_vec.x, 0, input_vec.y)).normalized()
 	var speed_multiplier := 1.0 + float(hop_chain) / 4.0
-	var star_multiplier := 3.0 if is_star_powered() else 1.0
+	var star_multiplier := GameConsts.STAR_SPEED_MULTIPLIER if is_star_powered() else 1.0
 	var target_speed := WALK_SPEED * speed_multiplier * star_multiplier
 	var horizontal := Vector3(velocity.x, 0, velocity.z)
 	if is_dashing():
@@ -280,7 +282,7 @@ func _split_dash_crowd(start: Vector3, end: Vector3) -> void:
 				sign_side = 1.0 if dash_hit_enemies.size() % 2 == 0 else -1.0
 			enemy.apply_directional_knockback(side * sign_side, GameConsts.DASH_KNOCKBACK_FORCE)
 
-func activate_star_power(duration := 5.0) -> void:
+func activate_star_power(duration := GameConsts.STAR_DURATION) -> void:
 	star_power_timer = maxf(star_power_timer, duration)
 	_update_star_effect()
 
@@ -299,10 +301,11 @@ func _reset_chain() -> void:
 		hop_changed.emit(0, 1.0)
 
 func set_attack_speed(multiplier: float) -> void:
-	attack_interval = 0.65 / multiplier
+	attack_interval = GameConsts.BASE_ATTACK_INTERVAL / multiplier
 
 func take_damage(amount: float) -> void:
-	if alive and not is_contact_invulnerable():
+	if alive and hurt_cooldown <= 0.0 and not is_contact_invulnerable():
+		hurt_cooldown = GameConsts.PLAYER_HIT_GRACE
 		hurt.emit(amount)
 
 func get_aim_point(distance := 100.0) -> Vector3:

@@ -1,14 +1,16 @@
 extends CharacterBody3D
 
+const GameConsts = preload("res://scripts/consts.gd")
+
 signal damage_dealt(amount: float)
 
 var direction := Vector3.FORWARD
-var speed := 28.0
+var speed := GameConsts.FIREBALL_SPEED
 var damage := 100.0
 var explosion_radius := 1.5
 var bounces_left := 0
 var crit_chance := 0.05
-var lifetime := 5.0
+var lifetime := GameConsts.FIREBALL_LIFETIME
 var owner_body: Node3D
 var already_hit: Dictionary = {}
 var homing_target: Node3D
@@ -117,7 +119,7 @@ func _damage_enemy(enemy: Node) -> void:
 		return
 	already_hit[enemy.get_instance_id()] = true
 	var crit := randf() < crit_chance
-	var dealt_damage := damage * (2.0 if crit else 1.0)
+	var dealt_damage := damage * (GameConsts.CRIT_DAMAGE_MULTIPLIER if crit else 1.0)
 	enemy.take_damage(dealt_damage, crit, attack_id)
 	damage_dealt.emit(dealt_damage)
 	_spawn_damage_number(enemy.global_position + Vector3.UP * 1.55, dealt_damage, crit)

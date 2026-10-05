@@ -5,6 +5,7 @@ var special_hit_cooldown := 0.0
 
 func _ready() -> void:
 	super._ready()
+	contact_damage = GameConsts.BOSS_CONTACT_DAMAGE
 	add_to_group("bosses")
 	var title := Label3D.new()
 	title.text = "FINAL BOSS"
@@ -22,7 +23,7 @@ func _physics_process(delta: float) -> void:
 func defeat(attack_id := -1, damage_amount := 0.0) -> void:
 	if health > 0.0:
 		if special_hit_cooldown <= 0.0:
-			special_hit_cooldown = 0.5
+			special_hit_cooldown = GameConsts.BOSS_SPECIAL_HIT_COOLDOWN
 			take_damage(GameConsts.BOSS_SPECIAL_HIT_DAMAGE, false, attack_id)
 		return
 	super.defeat(attack_id, damage_amount)

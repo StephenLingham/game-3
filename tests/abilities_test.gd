@@ -11,9 +11,9 @@ func _run() -> void:
 	current_scene = scene
 	await _physics_frames(3)
 
-	# Spawning remains rate-only and is now four times faster than before.
-	_check(is_equal_approx(scene._enemy_spawn_interval(0.0), scene.GameConsts.ENEMY_SPAWN_INTERVAL_START), "opening enemy spawn rate uses design constants")
-	_check(is_equal_approx(scene._enemy_spawn_interval(600.0), scene.GameConsts.ENEMY_SPAWN_INTERVAL_END), "late enemy spawn rate uses design constants")
+	# Spawning follows the configurable rate curve without a population cap.
+	_check(is_equal_approx(scene._enemy_spawn_interval(0.0), 1.0 / scene.GameConsts.ENEMY_SPAWN_RATES[0]), "opening enemy spawn rate uses design constants")
+	_check(is_equal_approx(scene._enemy_spawn_interval(600.0), 1.0 / scene.GameConsts.ENEMY_SPAWN_RATES.back()), "late enemy spawn rate uses design constants")
 	var count_before: int = get_nodes_in_group("enemies").size()
 	scene.enemy_spawn_clock = 0.0
 	scene._process(0.01)

@@ -1,7 +1,6 @@
 extends CharacterBody3D
 
 const EnemyConsts = preload("res://scripts/consts.gd")
-const GolemScene = preload("res://assets/enemies/stone_golem/stone_golem.glb")
 
 signal died(enemy: Node, position: Vector3, attack_id: int, damage_amount: float)
 
@@ -10,6 +9,7 @@ var health := 300.0
 var max_health := 300.0
 var move_speed := 3.2
 var touch_cooldown := 0.0
+var contact_damage := EnemyConsts.ENEMY_CONTACT_DAMAGE
 var visual: Node3D
 var flash_timer := 0.0
 var health_bar_fill: MeshInstance3D
@@ -28,8 +28,6 @@ var vortex_spin := Vector3.ZERO
 var enemy_type := 0
 var ice_shell: MeshInstance3D
 var body_material: StandardMaterial3D
-var walk_player: AnimationPlayer
-var walk_animation: StringName
 
 func setup(player: Node3D, type_index := 0, fixed_health := 100.0, color := Color("ff2020")) -> void:
 	target = player
@@ -41,43 +39,7 @@ func setup(player: Node3D, type_index := 0, fixed_health := 100.0, color := Colo
 	if is_instance_valid(body_material):
 		body_material.albedo_color = color
 		body_material.emission = color
-	_set_visual_for_type()
 	_update_health_bar()
-
-func _set_visual_for_type() -> void:
-	if enemy_type != 0 or is_instance_valid(walk_player):
-		return
-	for child in visual.get_children():
-		visual.remove_child(child)
-		child.queue_free()
-	body_material = null
-	var golem := GolemScene.instantiate() as Node3D
-	golem.name = "StoneGolem"
-	# Keep the existing visual pivot for hit flashes and vortex tumbling.
-	golem.position.y = -0.68
-	visual.add_child(golem)
-	walk_player = golem.find_child("AnimationPlayer", true, false) as AnimationPlayer
-	if is_instance_valid(walk_player):
-		for clip in walk_player.get_animation_list():
-			if "walk" in String(clip).to_lower():
-				walk_animation = clip
-				break
-		if not walk_animation.is_empty():
-			walk_player.get_animation(walk_animation).loop_mode = Animation.LOOP_LINEAR
-			walk_player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
-			walk_player.play(walk_animation)
-			walk_player.advance(0.0)
-
-func _advance_walk(delta: float) -> void:
-	if not is_instance_valid(walk_player) or walk_animation.is_empty():
-		return
-	if freeze_timer > 0.0 or vortex_hold_timer > 0.0:
-		return
-	var speed := Vector2(velocity.x, velocity.z).length()
-	if speed < 0.1:
-		walk_player.seek(0.0, true)
-	else:
-		walk_player.advance(delta * clampf(speed / 3.2, 0.0, 1.6))
 
 func _ready() -> void:
 	collision_layer = 4
@@ -201,7 +163,8 @@ func _physics_process(delta: float) -> void:
 		return
 	var offset := target.global_position - global_position
 	offset.y = 0
-	if offset.length() > 1.2:
+	var contact_radius := 0.7 + 0.675 * scale.x
+	if offset.length() > contact_radius:
 		var direction := offset.normalized()
 		velocity.x = move_toward(velocity.x, direction.x * move_speed, 12.0 * delta)
 		velocity.z = move_toward(velocity.z, direction.z * move_speed, 12.0 * delta)
@@ -210,13 +173,12 @@ func _physics_process(delta: float) -> void:
 	else:
 		velocity.x = move_toward(velocity.x, 0.0, 18.0 * delta)
 		velocity.z = move_toward(velocity.z, 0.0, 18.0 * delta)
-		if touch_cooldown <= 0.0 and target.has_method("take_damage") and not (target.has_method("is_contact_invulnerable") and target.is_contact_invulnerable()):
-			target.take_damage(12.0)
-			touch_cooldown = 0.8
+		if absf(target.global_position.y - global_position.y) < 1.8 * scale.y and touch_cooldown <= 0.0 and target.has_method("take_damage") and not (target.has_method("is_contact_invulnerable") and target.is_contact_invulnerable()):
+			target.take_damage(contact_damage)
+			touch_cooldown = EnemyConsts.ENEMY_CONTACT_COOLDOWN
 	if not is_on_floor():
 		velocity.y -= 22.0 * delta
 	move_and_slide()
-	_advance_walk(delta)
 
 func take_damage(amount: float, is_crit := false, attack_id := -1) -> void:
 	if defeated:

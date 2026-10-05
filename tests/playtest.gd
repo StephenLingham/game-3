@@ -142,9 +142,9 @@ func _run() -> void:
 	first_upgrade_card.pressed.emit()
 	_check(not scene.upgrade_active and not paused, "clicking an upgrade resumes gameplay")
 	_check(scene._enemy_spawn_interval(600.0) < scene._enemy_spawn_interval(0.0), "enemy spawn interval decreases over time")
-	_check(is_equal_approx(scene._enemy_spawn_interval(0.0), 0.25) and is_equal_approx(scene._enemy_spawn_interval(600.0), 0.0375), "enemy spawn interval is quadrupled with no cap gate")
+	_check(is_equal_approx(scene._enemy_spawn_interval(0.0), 1.0 / scene.GameConsts.ENEMY_SPAWN_RATES[0]) and is_equal_approx(scene._enemy_spawn_interval(scene.RUN_DURATION), 1.0 / scene.GameConsts.ENEMY_SPAWN_RATES.back()), "enemy spawn endpoints follow the balance constants")
 	_check(scene._enemy_health_multiplier(600.0) > scene._enemy_health_multiplier(0.0), "new enemy health increases over time")
-	_check(scene._enemy_health_for_type(0) == 100.0 and scene._enemy_health_for_type(9) == 2000.0 and scene.ENEMY_COLORS.size() == 10, "ten coloured enemy types span 100 to 2000 health")
+	_check(scene._enemy_health_for_type(0) == 100.0 and scene._enemy_health_for_type(9) == scene.GameConsts.ENEMY_HEALTH[9] and scene.ENEMY_COLORS.size() == 10, "ten coloured enemy types use the configured health table")
 
 	var elapsed_before_pause: float = scene.elapsed
 	scene._set_pause(true)
@@ -154,11 +154,13 @@ func _run() -> void:
 	scene._set_pause(false)
 	_check(not scene.pause_active and not paused and not scene.pause_overlay.visible, "resuming hides the pause screen and continues gameplay")
 
-	# Reaching ten minutes should stop the run and display victory.
+	# Reaching the deadline requires a defeated boss as well as survival.
+	scene._spawn_boss()
+	scene.boss.take_damage(scene.boss.health)
 	scene.elapsed = scene.RUN_DURATION - 0.1
 	scene._process(0.2)
 	_check(scene.game_over and paused, "surviving ten minutes ends the run")
-	_check("You Survived" in scene.upgrade_title.text, "ten-minute survival displays the victory screen")
+	_check("Victory" in scene.upgrade_title.text, "ten-minute survival displays the victory screen")
 
 	Input.action_release("move_forward")
 	Input.action_release("jump")

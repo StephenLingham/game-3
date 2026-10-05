@@ -13,22 +13,15 @@ const GameConsts = preload("res://scripts/consts.gd")
 const ARENA_HALF := GameConsts.ARENA_HALF
 const ARENA_FULL_RADIUS := ARENA_HALF * 1.45
 const RUN_DURATION := GameConsts.RUN_DURATION
-const HEALTH_REGEN_PER_SECOND := 2.0
-const STAR_SPAWN_INTERVAL := 120.0
-const MAGNET_SPAWN_INTERVAL := 14.0
-const SKILL_COOLDOWN := 60.0
-const ENEMY_HEALTH := [100.0, 200.0, 350.0, 550.0, 750.0, 1000.0, 1250.0, 1500.0, 1750.0, 2000.0]
+const STAR_SPAWN_INTERVAL := GameConsts.STAR_SPAWN_INTERVAL
+const MAGNET_SPAWN_INTERVAL := GameConsts.MAGNET_SPAWN_INTERVAL
+const SKILL_COOLDOWN := GameConsts.SKILL_COOLDOWN
+const ENEMY_HEALTH := GameConsts.ENEMY_HEALTH
 const ENEMY_COLORS := [
 	Color("ff2020"), Color("ffe600"), Color("1769ff"), Color("20e050"), Color("ff20d6"),
 	Color("16e8ff"), Color("ff7b16"), Color("8b32ff"), Color("f5f5f5"), Color("ff3c8e")
 ]
-const RARITIES := [
-	{"name": "Common", "color": Color("f4f4f4"), "mult": 1.0, "weight": 50.0},
-	{"name": "Uncommon", "color": Color("59e66b"), "mult": 1.45, "weight": 27.0},
-	{"name": "Rare", "color": Color("55a6ff"), "mult": 2.0, "weight": 14.0},
-	{"name": "Epic", "color": Color("bd6bff"), "mult": 2.8, "weight": 7.0},
-	{"name": "Legendary", "color": Color("ff9d32"), "mult": 4.0, "weight": 2.0}
-]
+const RARITIES := GameConsts.RARITIES
 const UPGRADE_DATA := {
 	"projectiles": {"title": "Multishot", "description": "+%s Fireball Projectile", "icon": "▦"},
 	"bounces": {"title": "Ricochet", "description": "+%s Projectile Bounce", "icon": "↗"},
@@ -39,22 +32,22 @@ const UPGRADE_DATA := {
 }
 
 var player: CharacterBody3D
-var player_health := 100.0
+var player_health := GameConsts.PLAYER_MAX_HEALTH
 var level := 1
 var xp := 0.0
-var xp_needed := 100.0
-var collection_radius := 2.2
+var xp_needed := GameConsts.XP_BASE_REQUIREMENT
+var collection_radius := GameConsts.INITIAL_COLLECTION_RADIUS
 var stats := {
-	"projectiles": 1,
-	"bounces": 0,
-	"radius": 1.5,
-	"damage": 100.0,
-	"crit": 0.05,
-	"attack_speed": 1.0
+	"projectiles": GameConsts.BASE_PROJECTILES,
+	"bounces": GameConsts.BASE_BOUNCES,
+	"radius": GameConsts.BASE_EXPLOSION_RADIUS,
+	"damage": GameConsts.BASE_DAMAGE,
+	"crit": GameConsts.BASE_CRIT_CHANCE,
+	"attack_speed": GameConsts.BASE_ATTACK_SPEED
 }
 var enemy_spawn_clock := 0.0
-var relic_spawn_clock := 10.0
-var magnet_spawn_clock := 7.0
+var relic_spawn_clock := GameConsts.RELIC_FIRST_SPAWN_TIME
+var magnet_spawn_clock := GameConsts.MAGNET_FIRST_SPAWN_TIME
 var star_spawn_clock := STAR_SPAWN_INTERVAL
 var elapsed := 0.0
 var kills := 0
@@ -101,9 +94,9 @@ func _ready() -> void:
 	_build_arena()
 	_spawn_player()
 	_build_hud()
-	for i in 7:
+	for i in GameConsts.INITIAL_ENEMY_COUNT:
 		_spawn_enemy()
-	for i in 4:
+	for i in GameConsts.INITIAL_RELIC_COUNT:
 		_spawn_relic()
 	_update_hud()
 
@@ -111,7 +104,7 @@ func _process(delta: float) -> void:
 	if get_tree().paused or game_over:
 		return
 	elapsed += delta
-	player_health = minf(100.0, player_health + HEALTH_REGEN_PER_SECOND * delta)
+	player_health = minf(GameConsts.PLAYER_MAX_HEALTH, player_health + _health_regen(elapsed) * delta)
 	if not boss_spawned and elapsed >= GameConsts.BOSS_SPAWN_TIME:
 		_spawn_boss()
 	if elapsed >= RUN_DURATION:
@@ -119,7 +112,7 @@ func _process(delta: float) -> void:
 			_win_run()
 		else:
 			_game_over()
-			upgrade_title.text = "Run Failed — Boss Still Alive\n\nDefeat the final boss before 10:00.\n\nPress R To Run Again"
+			upgrade_title.text = "Run Failed — Boss Still Alive\n\nDefeat the final boss before %s.\n\nPress R To Run Again" % _format_time(RUN_DURATION)
 		return
 	enemy_spawn_clock -= delta
 	relic_spawn_clock -= delta
@@ -128,12 +121,12 @@ func _process(delta: float) -> void:
 	for i in skill_cooldowns.size():
 		skill_cooldowns[i] = maxf(0.0, skill_cooldowns[i] - delta)
 	var spawn_interval := _enemy_spawn_interval(elapsed)
-	if enemy_spawn_clock <= 0.0:
+	while enemy_spawn_clock <= 0.0:
 		_spawn_enemy()
-		enemy_spawn_clock = spawn_interval
+		enemy_spawn_clock += spawn_interval
 	if relic_spawn_clock <= 0.0:
 		_spawn_relic()
-		relic_spawn_clock = 13.0
+		relic_spawn_clock = GameConsts.RELIC_SPAWN_INTERVAL
 	if magnet_spawn_clock <= 0.0:
 		_spawn_powerup("magnet")
 		magnet_spawn_clock = MAGNET_SPAWN_INTERVAL
@@ -276,7 +269,7 @@ func _spawn_enemy() -> void:
 	enemy.add_to_group("enemies")
 	enemy.process_mode = Node.PROCESS_MODE_PAUSABLE
 	var angle := randf() * TAU
-	var distance := randf_range(18.0, 38.0)
+	var distance := randf_range(GameConsts.ENEMY_SPAWN_DISTANCE_MIN, GameConsts.ENEMY_SPAWN_DISTANCE_MAX)
 	var candidate: Vector3 = player.global_position + Vector3(cos(angle), 0, sin(angle)) * distance
 	candidate.x = clampf(candidate.x, -44.0, 44.0)
 	candidate.z = clampf(candidate.z, -44.0, 44.0)
@@ -284,31 +277,37 @@ func _spawn_enemy() -> void:
 	add_child(enemy)
 	var enemy_type := _choose_enemy_type(elapsed)
 	enemy.setup(player, enemy_type, ENEMY_HEALTH[enemy_type], ENEMY_COLORS[enemy_type])
+	enemy.move_speed = lerpf(GameConsts.ENEMY_SPEED_START, GameConsts.ENEMY_SPEED_END, pow(clampf(elapsed / RUN_DURATION, 0.0, 1.0), GameConsts.ENEMY_SPEED_RAMP_EXPONENT))
 	enemy.died.connect(_on_enemy_died)
 
 func _enemy_spawn_interval(at_time: float) -> float:
-	var progress := clampf(at_time / RUN_DURATION, 0.0, 1.0)
-	# Rate-only spawning, with no active-enemy cap.
-	return lerpf(GameConsts.ENEMY_SPAWN_INTERVAL_START, GameConsts.ENEMY_SPAWN_INTERVAL_END, pow(progress, GameConsts.ENEMY_SPAWN_RAMP_EXPONENT))
+	var rates: Array = GameConsts.ENEMY_SPAWN_RATES
+	var phase := clampf(at_time / RUN_DURATION, 0.0, 1.0) * float(rates.size() - 1)
+	var lower := mini(int(phase), rates.size() - 2)
+	return 1.0 / lerpf(rates[lower], rates[lower + 1], phase - float(lower))
+
+func _health_regen(at_time: float) -> float:
+	var ramp := clampf((at_time - GameConsts.HEALTH_REGEN_RAMP_START) / (RUN_DURATION - GameConsts.HEALTH_REGEN_RAMP_START), 0.0, 1.0)
+	return lerpf(GameConsts.HEALTH_REGEN_START, GameConsts.HEALTH_REGEN_END, ramp)
 
 func _enemy_health_multiplier(at_time: float) -> float:
 	return _enemy_health_for_type(_primary_enemy_type(at_time)) / ENEMY_HEALTH[0]
 
 func _primary_enemy_type(at_time: float) -> int:
-	return clampi(int(floor(at_time / 60.0)), 0, ENEMY_HEALTH.size() - 1)
+	return clampi(int(floor(at_time / (RUN_DURATION / float(ENEMY_HEALTH.size())))), 0, ENEMY_HEALTH.size() - 1)
 
 func _enemy_health_for_type(enemy_type: int) -> float:
 	return ENEMY_HEALTH[clampi(enemy_type, 0, ENEMY_HEALTH.size() - 1)]
 
 func _choose_enemy_type(at_time: float) -> int:
-	# The ancient stone golem is the sole opening enemy type.
-	if at_time < 60.0:
+	# Red cubes are the sole opening enemy type.
+	if at_time < GameConsts.OPENING_GRACE_DURATION:
 		return 0
 	var primary := _primary_enemy_type(at_time)
 	var roll := randf()
-	if roll < 0.15 and primary > 0:
+	if roll < GameConsts.ENEMY_PREVIOUS_TYPE_CHANCE and primary > 0:
 		return primary - 1
-	if roll >= 0.90 and primary < ENEMY_HEALTH.size() - 1:
+	if roll >= 1.0 - GameConsts.ENEMY_NEXT_TYPE_CHANCE and primary < ENEMY_HEALTH.size() - 1:
 		return primary + 1
 	return primary
 
@@ -333,12 +332,12 @@ func _spawn_powerup(kind: String) -> void:
 	pickup.collected.connect(_on_pickup_collected)
 
 func _spawn_xp(pos: Vector3) -> void:
-	for i in randi_range(2, 4):
+	for i in randi_range(GameConsts.XP_DROPS_MIN, GameConsts.XP_DROPS_MAX):
 		var pickup := PickupScript.new()
 		pickup.add_to_group("pickups")
 		pickup.process_mode = Node.PROCESS_MODE_PAUSABLE
 		pickup.position = pos + Vector3(randf_range(-0.8, 0.8), randf_range(0.15, 0.65), randf_range(-0.8, 0.8))
-		pickup.setup("xp", 12.0, player)
+		pickup.setup("xp", GameConsts.XP_PER_DROP, player)
 		pickup.collection_radius = collection_radius
 		add_child(pickup)
 		pickup.collected.connect(_on_pickup_collected)
@@ -353,7 +352,7 @@ func _on_player_fire(origin: Vector3, direction: Vector3) -> void:
 		projectile.process_mode = Node.PROCESS_MODE_PAUSABLE
 		projectile.position = origin
 		var spread_index := float(i) - float(count - 1) * 0.5
-		var spread := deg_to_rad(spread_index * 4.0)
+		var spread := deg_to_rad(spread_index * GameConsts.FIREBALL_SPREAD_DEGREES)
 		var shot_direction: Vector3 = center_direction.rotated(Vector3.UP, spread)
 		add_child(projectile)
 		projectile.damage_dealt.connect(_on_damage_dealt)
@@ -394,15 +393,15 @@ func _on_pickup_collected(kind: String, value: float) -> void:
 			xp += value
 			_check_level_up()
 		"relic":
-			xp += xp_needed * 0.25
-			collection_radius += 0.55
+			xp += xp_needed * GameConsts.RELIC_LEVEL_XP_FRACTION
+			collection_radius += GameConsts.RELIC_COLLECTION_RADIUS_BONUS
 			for pickup in get_tree().get_nodes_in_group("pickups"):
 				pickup.collection_radius = collection_radius
-			_show_pickup_message("Gold Relic Collected\n+25% Level XP   •   +0.55m Pickup Range")
+			_show_pickup_message("Gold Relic Collected\n+%.0f%% Level XP   •   +%.2fm Pickup Range" % [GameConsts.RELIC_LEVEL_XP_FRACTION * 100.0, GameConsts.RELIC_COLLECTION_RADIUS_BONUS])
 			_check_level_up()
 		"star":
-			player.activate_star_power(5.0)
-			_show_pickup_message("Star Power!\n3× Speed   •   Contact Kills   •   5 Seconds")
+			player.activate_star_power(GameConsts.STAR_DURATION)
+			_show_pickup_message("Star Power!\n%.1f× Speed   •   Contact Kills   •   %.1f Seconds" % [GameConsts.STAR_SPEED_MULTIPLIER, GameConsts.STAR_DURATION])
 		"magnet":
 			for pickup in get_tree().get_nodes_in_group("pickups"):
 				if pickup.kind == "xp":
@@ -424,12 +423,12 @@ func _use_skill(skill_number: int) -> void:
 			# The arena is 96 units wide, so a 48-unit radius is half its size.
 			var force_radius := ARENA_HALF
 			for enemy in _enemies_within(center, force_radius):
-				enemy.apply_knockback(center, 31.0)
+				enemy.apply_knockback(center, GameConsts.FORCE_PUSH_STRENGTH)
 			_spawn_skill_pulse(center + Vector3.UP * 0.7, force_radius, Color("7de9ff"), 0.3, 0.3)
 			_show_pickup_message("Force Push")
 		2:
 			for enemy in get_tree().get_nodes_in_group("enemies"):
-				enemy.freeze(4.0)
+				enemy.freeze(GameConsts.FROST_DURATION)
 			_spawn_frost_nova_visual(center + Vector3.UP * 0.15, ARENA_FULL_RADIUS)
 			_show_pickup_message("Frost Nova   •   Arena Frozen")
 		3:
@@ -528,10 +527,13 @@ func _check_level_up() -> void:
 
 func _xp_required_for_level(target_level: int) -> float:
 	var completed_levels := float(maxi(0, target_level - 1))
-	return 100.0 + completed_levels * 42.0 + completed_levels * completed_levels * 3.0
+	return GameConsts.XP_BASE_REQUIREMENT + completed_levels * GameConsts.XP_REQUIREMENT_LINEAR + completed_levels * completed_levels * GameConsts.XP_REQUIREMENT_QUADRATIC
 
 func _roll_rarity() -> Dictionary:
-	var roll := randf() * 100.0
+	var total_weight := 0.0
+	for rarity in RARITIES:
+		total_weight += rarity.weight
+	var roll := randf() * total_weight
 	var running := 0.0
 	for rarity in RARITIES:
 		running += rarity.weight
@@ -546,10 +548,10 @@ func _make_offer(kind: String) -> Dictionary:
 	match kind:
 		"projectiles": amount = clampi(int(round(mult)), 1, 3)
 		"bounces": amount = clampi(int(round(mult)), 1, 4)
-		"radius": amount = snapped(0.30 * mult, 0.05)
-		"damage": amount = snapped(20.0 * mult, 5.0)
-		"crit": amount = snapped(3.0 * mult, 1.0)
-		"attack_speed": amount = snapped(12.0 * mult, 1.0)
+		"radius": amount = snapped(GameConsts.UPGRADE_RADIUS * mult, 0.05)
+		"damage": amount = snapped(GameConsts.UPGRADE_DAMAGE * mult, 5.0)
+		"crit": amount = snapped(GameConsts.UPGRADE_CRIT_PERCENT * mult, 1.0)
+		"attack_speed": amount = snapped(GameConsts.UPGRADE_ATTACK_SPEED_PERCENT * mult, 1.0)
 	return {"kind": kind, "rarity": rarity, "amount": amount}
 
 func _show_upgrade_choices() -> void:
@@ -613,7 +615,7 @@ func _choose_upgrade(index: int) -> void:
 		"bounces": stats.bounces += int(offer.amount)
 		"radius": stats.radius += offer.amount
 		"damage": stats.damage += offer.amount
-		"crit": stats.crit = minf(0.75, stats.crit + offer.amount / 100.0)
+		"crit": stats.crit = minf(GameConsts.CRIT_CHANCE_CAP, stats.crit + offer.amount / 100.0)
 		"attack_speed": stats.attack_speed += offer.amount / 100.0
 	player.set_attack_speed(stats.attack_speed)
 	upgrade_active = false
@@ -713,6 +715,10 @@ func _game_over() -> void:
 	upgrade_title.text = "Run Over\n\nLevel %d  •  %d Enemies Defeated\n\nPress R To Run Again" % [level, kills]
 	upgrade_overlay.visible = true
 
+func _format_time(seconds: float) -> String:
+	var whole_seconds := ceili(seconds)
+	return "%02d:%02d" % [whole_seconds / 60, whole_seconds % 60]
+
 func _win_run() -> void:
 	_record_run_stats()
 	game_over = true
@@ -721,7 +727,7 @@ func _win_run() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	for child in cards_row.get_children():
 		child.queue_free()
-	upgrade_title.text = "Victory — Boss Defeated!\n\n10:00 Complete  •  Level %d  •  %d Enemies Defeated\n\nPress R To Play Again" % [level, kills]
+	upgrade_title.text = "Victory — Boss Defeated!\n\n%s Complete  •  Level %d  •  %d Enemies Defeated\n\nPress R To Play Again" % [_format_time(RUN_DURATION), level, kills]
 	upgrade_overlay.visible = true
 
 func _build_hud() -> void:
@@ -743,7 +749,7 @@ func _build_hud() -> void:
 	root.add_child(top)
 	health_bar = ProgressBar.new()
 	health_bar.custom_minimum_size = Vector2(300, 30)
-	health_bar.max_value = 100.0
+	health_bar.max_value = GameConsts.PLAYER_MAX_HEALTH
 	health_bar.show_percentage = false
 	health_bar.add_theme_stylebox_override("background", StyleBoxEmpty.new())
 	health_bar.add_theme_stylebox_override("fill", _flat_style(Color("ff5d62")))
@@ -1029,7 +1035,7 @@ func _alive_enemy_count() -> int:
 func _update_hud() -> void:
 	if not is_instance_valid(health_label):
 		return
-	health_label.text = "%d / %d" % [int(ceil(player_health)), 100]
+	health_label.text = "%d / %d" % [int(ceil(player_health)), int(GameConsts.PLAYER_MAX_HEALTH)]
 	health_label.modulate = Color.WHITE
 	health_bar.value = player_health
 	xp_bar.max_value = xp_needed
@@ -1058,14 +1064,14 @@ func _spawn_boss() -> void:
 	boss.add_to_group("enemies")
 	boss.process_mode = Node.PROCESS_MODE_PAUSABLE
 	var forward: Vector3 = -player.global_transform.basis.z
-	var spawn: Vector3 = player.global_position + forward * 25.0
+	var spawn: Vector3 = player.global_position + forward * GameConsts.BOSS_SPAWN_DISTANCE
 	spawn.x = clampf(spawn.x, -40.0, 40.0)
 	spawn.z = clampf(spawn.z, -40.0, 40.0)
 	boss.position = Vector3(spawn.x, 0.05, spawn.z)
 	add_child(boss)
 	boss.setup(player, 9, GameConsts.BOSS_HEALTH, Color("b92cff"))
-	boss.scale = Vector3.ONE * 3.0
+	boss.scale = Vector3.ONE * GameConsts.BOSS_SCALE
 	boss.move_speed = GameConsts.BOSS_SPEED
 	boss.died.connect(_on_enemy_died)
 	boss.died.connect(func(_enemy: Node, _pos: Vector3, _attack: int, _damage: float): boss_defeated = true)
-	_show_pickup_message("FINAL BOSS\nDefeat it before 10:00!", Color("ffba38"))
+	_show_pickup_message("FINAL BOSS\nDefeat it before %s!" % _format_time(RUN_DURATION), Color("ffba38"))
