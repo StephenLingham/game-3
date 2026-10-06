@@ -22,19 +22,33 @@ func _run() -> void:
 	assert(is_equal_approx(scene._health_regen(scene.RUN_DURATION), scene.GameConsts.HEALTH_REGEN_END))
 	for i in 100:
 		assert(scene._choose_enemy_type(119.0) == 0, "Opening enemies are always one-shot red cubes")
+	# Test the actual spawn geometry at the centre, sides and corners.
+	var sides := [0, 0, 0, 0]
+	var edge: float = scene.GameConsts.ENEMY_SPAWN_EDGE
+	for player_pos in [Vector3.ZERO, Vector3(46, 0, 0), Vector3(-46, 0, 0), Vector3(0, 0, 46), Vector3(0, 0, -46), Vector3(46, 0, 46), Vector3(-46, 0, -46)]:
+		scene.player.global_position = player_pos
+		for sample in 200:
+			var spawn: Vector3 = scene._enemy_spawn_position()
+			assert(is_equal_approx(absf(spawn.x), edge) or is_equal_approx(absf(spawn.z), edge), "Enemies must spawn on an arena edge")
+			assert(absf(spawn.x) <= edge and absf(spawn.z) <= edge, "Spawns must remain inside the walls")
+			assert(Vector2(spawn.x, spawn.z).distance_to(Vector2(player_pos.x, player_pos.z)) >= scene.GameConsts.ENEMY_SPAWN_DISTANCE_MIN, "No surprise contact spawns")
+			if spawn.x == -edge: sides[0] += 1
+			elif spawn.x == edge: sides[1] += 1
+			elif spawn.z == -edge: sides[2] += 1
+			else: sides[3] += 1
+	for count in sides: assert(count > 0, "All four sides must spawn enemies")
+	scene.player.global_position = Vector3.ZERO
+	assert(1.0 / scene._enemy_spawn_interval(360.0) >= 7.0, "Wave six brings a substantial horde")
 	# Spawn debt must survive frames slower than the requested spawn interval.
 	scene.elapsed = 570.0
-	scene._spawn_boss()
-	scene.boss.set_physics_process(false)
 	scene.enemy_spawn_clock = 0.0
 	var count_before: int = scene._alive_enemy_count()
 	scene._process(0.5)
-	assert(scene._alive_enemy_count() >= count_before + 5, "Slow frames must not lower late difficulty")
-	scene.boss.global_position = scene.player.global_position + Vector3(2.5, 0.0, 0.0)
+	var expected_spawns := int(floor(0.5 / scene._enemy_spawn_interval(scene.elapsed))) + 1
+	assert(scene._alive_enemy_count() == count_before + expected_spawns, "Slow frames must repay all late-wave spawn debt")
 	scene.player_health = scene.GameConsts.PLAYER_MAX_HEALTH
 	scene.player.hurt_cooldown = 0.0
-	scene.boss._physics_process(0.01)
-	assert(scene.player_health == scene.GameConsts.PLAYER_MAX_HEALTH - scene.GameConsts.BOSS_CONTACT_DAMAGE, "Scaled boss must reach the player")
+	scene.player.take_damage(scene.GameConsts.ENEMY_CONTACT_DAMAGE)
 	var after_hit: float = scene.player_health
 	scene.player.take_damage(scene.GameConsts.ENEMY_CONTACT_DAMAGE)
 	assert(scene.player_health == after_hit, "Crowd hits share a short recovery window")
@@ -42,5 +56,9 @@ func _run() -> void:
 	scene.player.take_damage(scene.GameConsts.ENEMY_CONTACT_DAMAGE)
 	assert(scene.player_health < after_hit, "Recovery must not give permanent immunity")
 	assert(scene.GameConsts.DASH_DURATION / scene.GameConsts.DASH_COOLDOWN < 0.2, "Dash cannot give continuous immunity")
-	print("BALANCE RULES PASSED: opening, full ramp, regeneration, spawn debt, boss contact, hit grace and dash uptime")
+	assert(get_nodes_in_group("bosses").is_empty(), "Late waves must not spawn a boss")
+	scene.elapsed = scene.RUN_DURATION - 0.01
+	scene._process(0.02)
+	assert(scene.game_over and "Victory" in scene.upgrade_title.text, "Surviving the full timer wins with enemies still alive")
+	print("BALANCE RULES PASSED: opening, horde ramp, perimeter spawns, regeneration, spawn debt, survival victory, hit grace and dash uptime")
 	quit(0)

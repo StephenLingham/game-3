@@ -1,0 +1,68 @@
+Horde release playtests — 2026-10-06; Godot 4.6.1; fixed 60 physics ticks/second; contact damage 7 HP.
+
+horde-release-1337
+TRACE t=60.02 physics=3602 hop=4 pos=(6.947008, 1.085413, 19.85822) hp=100.0 level=6 kills=33 alive=1 stats={ "projectiles": 2, "bounces": 1, "radius": 1.5, "damage": 140.0, "crit": 0.05, "attack_speed": 1.12 }
+TRACE t=120.02 physics=7202 hop=4 pos=(-7.36485, 1.375862, 19.7054) hp=100.0 level=10 kills=65 alive=4 stats={ "projectiles": 3, "bounces": 1, "radius": 1.5, "damage": 180.0, "crit": 0.05, "attack_speed": 1.46 }
+TRACE t=180.00 physics=10801 hop=4 pos=(19.27322, 1.117529, 8.450233) hp=100.0 level=13 kills=115 alive=3 stats={ "projectiles": 4, "bounces": 5, "radius": 1.5, "damage": 200.0, "crit": 0.05, "attack_speed": 1.46 }
+TRACE t=240.00 physics=14401 hop=4 pos=(1.697546, 0.362538, -35.68131) hp=100.0 level=16 kills=188 alive=5 stats={ "projectiles": 4, "bounces": 5, "radius": 1.95, "damage": 220.0, "crit": 0.05, "attack_speed": 1.8 }
+TRACE t=300.00 physics=18001 hop=4 pos=(18.38593, 0.518084, -11.74069) hp=100.0 level=20 kills=319 alive=9 stats={ "projectiles": 4, "bounces": 5, "radius": 1.95, "damage": 270.0, "crit": 0.05, "attack_speed": 2.09 }
+TRACE t=360.00 physics=21601 hop=4 pos=(-22.48315, 1.142529, -9.52723) hp=100.0 level=24 kills=597 alive=30 stats={ "projectiles": 4, "bounces": 5, "radius": 2.8, "damage": 300.0, "crit": 0.05, "attack_speed": 2.45 }
+TRACE t=420.02 physics=25202 hop=4 pos=(17.81757, 1.368084, -11.16752) hp=96.5 level=31 kills=1087 alive=80 stats={ "projectiles": 5, "bounces": 5, "radius": 2.8, "damage": 410.0, "crit": 0.05, "attack_speed": 2.69 }
+TRACE t=480.02 physics=28802 hop=4 pos=(-5.018768, 1.259197, 21.49297) hp=78.0 level=38 kills=1869 alive=78 stats={ "projectiles": 5, "bounces": 5, "radius": 3.25, "damage": 530.0, "crit": 0.17, "attack_speed": 2.69 }
+TRACE t=540.02 physics=32402 hop=4 pos=(13.04714, 0.759224, -25.92928) hp=54.9 level=45 kills=2902 alive=95 stats={ "projectiles": 5, "bounces": 5, "radius": 3.25, "damage": 600.0, "crit": 0.29, "attack_speed": 3.03 }
+TRACE t=600.02 physics=36002 hop=4 pos=(10.60282, 0.059199, 19.04759) hp=20.5 level=51 kills=4283 alive=94 stats={ "projectiles": 5, "bounces": 5, "radius": 3.25, "damage": 650.0, "crit": 0.33, "attack_speed": 3.39 }
+TRACE t=600.02 physics=36002 hop=4 pos=(10.60282, 0.059199, 19.04759) hp=20.5 level=51 kills=4283 alive=94 stats={ "projectiles": 5, "bounces": 5, "radius": 3.25, "damage": 650.0, "crit": 0.33, "attack_speed": 3.39 }
+RESULT seed=1337 pilot=skilled victory=true finished_at=600.02 hp=20.5 minimum_hp=18.5 final_minimum_hp=18.5 damage=266.0 final_damage=70.0 peak_alive=149
+
+horde-release-11
+TRACE t=60.02 physics=3602 hop=4 pos=(15.59515, 1.085862, -14.13739) hp=100.0 level=7 kills=34 alive=0 stats={ "projectiles": 4, "bounces": 2, "radius": 1.5, "damage": 140.0, "crit": 0.05, "attack_speed": 1.34 }
+TRACE t=120.02 physics=7202 hop=4 pos=(28.57146, 1.368087, -10.21247) hp=100.0 level=10 kills=67 alive=2 stats={ "projectiles": 4, "bounces": 2, "radius": 1.5, "damage": 190.0, "crit": 0.05, "attack_speed": 1.46 }
+TRACE t=180.00 physics=10801 hop=4 pos=(16.00006, 1.218084, -13.61307) hp=100.0 level=13 kills=117 alive=1 stats={ "projectiles": 4, "bounces": 2, "radius": 1.5, "damage": 210.0, "crit": 0.05, "attack_speed": 2.04 }
+TRACE t=240.00 physics=14401 hop=4 pos=(-13.06554, 0.573084, 16.4972) hp=100.0 level=16 kills=190 alive=3 stats={ "projectiles": 4, "bounces": 2, "radius": 2.1, "damage": 260.0, "crit": 0.05, "attack_speed": 2.04 }
+TRACE t=300.00 physics=18001 hop=4 pos=(20.47003, 0.412044, -9.18093) hp=100.0 level=20 kills=322 alive=6 stats={ "projectiles": 4, "bounces": 2, "radius": 2.7, "damage": 280.0, "crit": 0.05, "attack_speed": 2.64 }
+TRACE t=360.00 physics=21601 hop=4 pos=(15.21659, 1.085862, -14.90147) hp=100.0 level=25 kills=615 alive=12 stats={ "projectiles": 5, "bounces": 5, "radius": 3.0, "damage": 310.0, "crit": 0.05, "attack_speed": 2.98 }
+TRACE t=420.02 physics=25202 hop=4 pos=(-12.97484, 1.368084, -16.63988) hp=90.8 level=32 kills=1146 alive=21 stats={ "projectiles": 5, "bounces": 5, "radius": 4.3, "damage": 330.0, "crit": 0.21, "attack_speed": 3.39 }
+TRACE t=480.02 physics=28802 hop=4 pos=(4.108795, 1.259195, 20.71669) hp=91.2 level=38 kills=1918 alive=29 stats={ "projectiles": 5, "bounces": 5, "radius": 4.75, "damage": 450.0, "crit": 0.24, "attack_speed": 3.63 }
+TRACE t=540.02 physics=32402 hop=4 pos=(20.41964, 0.573084, -5.49629) hp=83.3 level=45 kills=2963 alive=34 stats={ "projectiles": 5, "bounces": 5, "radius": 4.75, "damage": 610.0, "crit": 0.27, "attack_speed": 3.87 }
+TRACE t=600.02 physics=36002 hop=4 pos=(19.75866, 0.000849, 7.256371) hp=48.9 level=52 kills=4331 alive=46 stats={ "projectiles": 5, "bounces": 5, "radius": 4.75, "damage": 710.0, "crit": 0.27, "attack_speed": 4.28 }
+TRACE t=600.02 physics=36002 hop=4 pos=(19.75866, 0.000849, 7.256371) hp=48.9 level=52 kills=4331 alive=46 stats={ "projectiles": 5, "bounces": 5, "radius": 4.75, "damage": 710.0, "crit": 0.27, "attack_speed": 4.28 }
+RESULT seed=11 pilot=skilled victory=true finished_at=600.02 hp=48.9 minimum_hp=48.3 final_minimum_hp=48.3 damage=196.0 final_damage=70.0 peak_alive=151
+
+horde-release-27
+TRACE t=60.02 physics=3602 hop=4 pos=(-17.87021, 1.085862, -11.14912) hp=100.0 level=7 kills=32 alive=2 stats={ "projectiles": 4, "bounces": 3, "radius": 1.5, "damage": 170.0, "crit": 0.05, "attack_speed": 1.0 }
+TRACE t=120.02 physics=7202 hop=4 pos=(-18.24844, 1.37585, 1.08028) hp=100.0 level=10 kills=67 alive=2 stats={ "projectiles": 4, "bounces": 3, "radius": 1.5, "damage": 200.0, "crit": 0.05, "attack_speed": 1.36 }
+TRACE t=180.00 physics=10801 hop=4 pos=(-19.64285, 1.170862, 7.569983) hp=100.0 level=13 kills=115 alive=3 stats={ "projectiles": 4, "bounces": 3, "radius": 1.5, "damage": 255.0, "crit": 0.11, "attack_speed": 1.48 }
+TRACE t=240.00 physics=14401 hop=4 pos=(5.591338, 0.470862, 20.31135) hp=100.0 level=16 kills=187 alive=6 stats={ "projectiles": 4, "bounces": 3, "radius": 2.85, "damage": 255.0, "crit": 0.11, "attack_speed": 1.48 }
+TRACE t=300.00 physics=18001 hop=4 pos=(-5.731639, 0.412529, 20.2569) hp=100.0 level=20 kills=311 alive=17 stats={ "projectiles": 4, "bounces": 3, "radius": 2.85, "damage": 335.0, "crit": 0.11, "attack_speed": 1.77 }
+TRACE t=360.00 physics=21601 hop=4 pos=(-22.04193, 1.14253, 4.16402) hp=97.5 level=25 kills=589 alive=38 stats={ "projectiles": 4, "bounces": 3, "radius": 2.85, "damage": 435.0, "crit": 0.17, "attack_speed": 2.13 }
+TRACE t=420.02 physics=25202 hop=4 pos=(9.702922, 0.617622, -19.58634) hp=93.4 level=31 kills=1089 alive=78 stats={ "projectiles": 7, "bounces": 3, "radius": 2.85, "damage": 455.0, "crit": 0.17, "attack_speed": 3.14 }
+TRACE t=480.02 physics=28802 hop=4 pos=(-20.15113, 0.518084, -8.370235) hp=81.1 level=38 kills=1850 alive=97 stats={ "projectiles": 7, "bounces": 3, "radius": 3.15, "damage": 455.0, "crit": 0.25, "attack_speed": 4.06 }
+TRACE t=540.02 physics=32402 hop=4 pos=(-21.32365, 1.142536, -17.40915) hp=34.7 level=45 kills=2890 alive=107 stats={ "projectiles": 7, "bounces": 3, "radius": 3.15, "damage": 525.0, "crit": 0.28, "attack_speed": 4.47 }
+TRACE t=570.35 physics=34223 hop=4 pos=(5.321628, 0.362543, 23.00821) hp=0.0 level=48 kills=3480 alive=170 stats={ "projectiles": 7, "bounces": 3, "radius": 3.15, "damage": 565.0, "crit": 0.28, "attack_speed": 5.05 }
+RESULT seed=27 pilot=skilled victory=false finished_at=570.35 hp=0.0 minimum_hp=0.0 final_minimum_hp=0.0 damage=245.0 final_damage=56.0 peak_alive=175
+
+horde-release-casual-11
+TRACE t=60.02 physics=3602 hop=0 pos=(11.59622, 0.000845, -17.52687) hp=100.0 level=7 kills=32 alive=2 stats={ "projectiles": 1, "bounces": 2, "radius": 1.5, "damage": 170.0, "crit": 0.05, "attack_speed": 1.58 }
+TRACE t=120.02 physics=7202 hop=0 pos=(4.204751, 0.000845, -20.59329) hp=100.0 level=10 kills=66 alive=3 stats={ "projectiles": 2, "bounces": 2, "radius": 1.5, "damage": 225.0, "crit": 0.05, "attack_speed": 1.75 }
+TRACE t=180.00 physics=10801 hop=0 pos=(18.71251, 0.000845, -10.07876) hp=100.0 level=13 kills=113 alive=5 stats={ "projectiles": 2, "bounces": 2, "radius": 1.5, "damage": 265.0, "crit": 0.05, "attack_speed": 1.87 }
+TRACE t=240.00 physics=14401 hop=0 pos=(-6.719738, 0.000845, -19.9144) hp=100.0 level=16 kills=191 alive=2 stats={ "projectiles": 6, "bounces": 2, "radius": 1.5, "damage": 265.0, "crit": 0.05, "attack_speed": 2.21 }
+TRACE t=300.00 physics=18001 hop=0 pos=(17.57098, 0.000845, -11.53349) hp=100.0 level=20 kills=321 alive=7 stats={ "projectiles": 6, "bounces": 2, "radius": 1.5, "damage": 380.0, "crit": 0.05, "attack_speed": 2.21 }
+TRACE t=360.00 physics=21601 hop=0 pos=(-17.15425, 0.000113, 12.14243) hp=89.7 level=25 kills=610 alive=17 stats={ "projectiles": 6, "bounces": 4, "radius": 1.5, "damage": 500.0, "crit": 0.05, "attack_speed": 2.21 }
+TRACE t=420.02 physics=25202 hop=0 pos=(-20.69225, 0.000841, 3.840366) hp=74.5 level=32 kills=1137 alive=30 stats={ "projectiles": 6, "bounces": 4, "radius": 1.5, "damage": 500.0, "crit": 0.27, "attack_speed": 2.86 }
+TRACE t=480.02 physics=28802 hop=0 pos=(20.94939, 0.000841, 2.304919) hp=59.7 level=38 kills=1905 alive=42 stats={ "projectiles": 6, "bounces": 4, "radius": 2.55, "damage": 590.0, "crit": 0.27, "attack_speed": 2.98 }
+TRACE t=540.02 physics=32402 hop=0 pos=(-20.42347, 0.000747, 5.00301) hp=22.5 level=45 kills=2935 alive=62 stats={ "projectiles": 6, "bounces": 4, "radius": 4.35, "damage": 705.0, "crit": 0.27, "attack_speed": 3.22 }
+TRACE t=577.07 physics=34626 hop=0 pos=(-14.16968, 0.000841, 15.04174) hp=0.0 level=49 kills=3687 alive=120 stats={ "projectiles": 6, "bounces": 4, "radius": 4.35, "damage": 785.0, "crit": 0.33, "attack_speed": 3.46 }
+RESULT seed=11 pilot=casual victory=false finished_at=577.07 hp=0.0 minimum_hp=0.0 final_minimum_hp=0.0 damage=252.0 final_damage=49.0 peak_alive=186
+
+horde-release-rendered-1337
+TRACE t=60.02 physics=3602 hop=4 pos=(9.880684, 1.085862, -18.57644) hp=100.0 level=7 kills=32 alive=2 stats={ "projectiles": 2, "bounces": 1, "radius": 1.5, "damage": 170.0, "crit": 0.05, "attack_speed": 1.24 }
+TRACE t=120.02 physics=7202 hop=4 pos=(-11.67399, 1.375862, 17.52695) hp=100.0 level=10 kills=68 alive=1 stats={ "projectiles": 2, "bounces": 1, "radius": 1.5, "damage": 210.0, "crit": 0.17, "attack_speed": 1.24 }
+TRACE t=180.00 physics=10801 hop=4 pos=(22.4147, 1.170828, 23.66329) hp=100.0 level=13 kills=114 alive=4 stats={ "projectiles": 4, "bounces": 2, "radius": 1.5, "damage": 210.0, "crit": 0.17, "attack_speed": 1.24 }
+TRACE t=240.00 physics=14401 hop=4 pos=(14.57406, 0.248085, -16.90676) hp=100.0 level=16 kills=187 alive=6 stats={ "projectiles": 4, "bounces": 3, "radius": 1.5, "damage": 230.0, "crit": 0.17, "attack_speed": 1.36 }
+TRACE t=300.00 physics=18001 hop=4 pos=(-11.5194, 0.518081, 17.60921) hp=100.0 level=20 kills=318 alive=10 stats={ "projectiles": 4, "bounces": 3, "radius": 1.5, "damage": 325.0, "crit": 0.23, "attack_speed": 1.48 }
+TRACE t=360.00 physics=21601 hop=4 pos=(-26.92911, 1.193084, 10.29393) hp=100.0 level=25 kills=583 alive=44 stats={ "projectiles": 4, "bounces": 3, "radius": 2.7, "damage": 325.0, "crit": 0.31, "attack_speed": 2.01 }
+TRACE t=420.02 physics=25202 hop=4 pos=(21.05055, 1.375932, 8.484463) hp=100.0 level=31 kills=1092 alive=75 stats={ "projectiles": 6, "bounces": 3, "radius": 2.7, "damage": 445.0, "crit": 0.31, "attack_speed": 2.25 }
+TRACE t=480.02 physics=28802 hop=4 pos=(-13.54602, 1.117543, -10.74038) hp=51.5 level=38 kills=1836 alive=111 stats={ "projectiles": 6, "bounces": 3, "radius": 3.0, "damage": 535.0, "crit": 0.31, "attack_speed": 2.78 }
+TRACE t=540.02 physics=32402 hop=4 pos=(40.29881, 0.470907, -20.15644) hp=56.4 level=44 kills=2860 alive=137 stats={ "projectiles": 6, "bounces": 3, "radius": 3.0, "damage": 645.0, "crit": 0.35, "attack_speed": 3.19 }
+TRACE t=568.72 physics=34125 hop=4 pos=(29.86453, 1.058096, -11.93139) hp=0.0 level=48 kills=3491 alive=121 stats={ "projectiles": 6, "bounces": 3, "radius": 3.0, "damage": 735.0, "crit": 0.35, "attack_speed": 3.31 }
+RESULT seed=1337 pilot=skilled victory=false finished_at=568.72 hp=0.0 minimum_hp=0.0 final_minimum_hp=0.0 damage=259.0 final_damage=77.0 peak_alive=166

@@ -4,18 +4,19 @@ extends RefCounted
 const ARENA_HALF := 48.0
 const RUN_DURATION := 600.0
 # Spawn rates at each minute boundary. Interpolate rates, not intervals.
-# First two minutes are forgiving; the final minute ramps from 8.5 to 11.5/s.
-const ENEMY_SPAWN_RATES := [0.4, 0.5, 0.65, 1.0, 1.5, 2.2, 3.2, 4.4, 6.0, 8.5, 11.5]
+# First five waves build the character; waves six onward flood the perimeter.
+const ENEMY_SPAWN_RATES := [0.4, 0.5, 0.65, 1.0, 1.5, 3.0, 7.0, 11.0, 15.0, 20.0, 26.0]
 const INITIAL_ENEMY_COUNT := 7
-const ENEMY_HEALTH := [100.0, 100.0, 180.0, 280.0, 400.0, 550.0, 700.0, 850.0, 1200.0, 1500.0]
+const ENEMY_HEALTH := [100.0, 100.0, 180.0, 260.0, 350.0, 450.0, 550.0, 650.0, 800.0, 950.0]
 const ENEMY_PREVIOUS_TYPE_CHANCE := 0.15
 const ENEMY_NEXT_TYPE_CHANCE := 0.10
 const ENEMY_SPEED_START := 3.2
-const ENEMY_SPEED_END := 10.0
-const ENEMY_SPEED_RAMP_EXPONENT := 1.6
+const ENEMY_SPEED_END := 12.5
+const ENEMY_SPEED_RAMP_EXPONENT := 3.0
 const ENEMY_SPAWN_DISTANCE_MIN := 18.0
-const ENEMY_SPAWN_DISTANCE_MAX := 38.0
-const ENEMY_CONTACT_DAMAGE := 12.0
+# Keep even the largest enemy inside the walls (inner face at 47.5).
+const ENEMY_SPAWN_EDGE := ARENA_HALF - 2.0
+const ENEMY_CONTACT_DAMAGE := 7.0
 const ENEMY_CONTACT_COOLDOWN := 0.8
 
 const PLAYER_MAX_HEALTH := 100.0
@@ -79,8 +80,7 @@ const DASH_COOLDOWN := 3.0
 const DASH_CONTACT_RADIUS := 1.15
 const DASH_KNOCKBACK_FORCE := 24.0
 
-# Final boss arrives with one minute left in the default run.
-# At ~9,000 effective boss DPS this health takes ~55.6 seconds.
+# Dormant boss prototype settings. The survival run does not spawn a boss.
 const BOSS_FIGHT_DURATION := 60.0
 const BOSS_SPAWN_TIME := RUN_DURATION - BOSS_FIGHT_DURATION
 const BOSS_HEALTH := 500000.0

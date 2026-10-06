@@ -1,67 +1,82 @@
 # Balance and tuning
 
-Edit `scripts/consts.gd`. The default run lasts ten minutes, with the boss in the last minute. Enemy health has ten entries; spawn rates have eleven entries, one at each minute boundary. Rates interpolate linearly, so pressure does not jump at minute boundaries. Health tiers still change each minute.
+Balance settings live in `scripts/consts.gd`. A run has ten one-minute waves. Survive ten minutes to win; the boss is removed from the run. Its prototype script and constants remain dormant for future work. Remaining enemies do not need to be cleared after the timer ends.
 
-| Time | Spawn rate / second | Primary HP | New enemy speed |
-| --- | ---: | ---: | ---: |
-| 0:00 | 0.40 | 100 | 3.20 |
-| 2:00 | 0.65 | 180 | 3.72 |
-| 5:00 | 2.20 | 550 | 5.44 |
-| 8:00 | 6.00 | 1,200 | 7.96 |
-| 9:00 | 8.50 | 1,500 | 8.95 |
-| 10:00 | 11.50 | 1,500 | 10.00 |
+The first five waves build the character. Wave six more than doubles the previous wave's enemy count, and the second half keeps increasing the horde. Spawn rates interpolate linearly between minute boundaries; health changes by wave. Previously spawned enemies retain their original health and speed.
 
-Before 2:00 all spawns are 100 HP red cubes, including the entire second minute. Base shots kill them with one hit. The table's HP column describes the primary tier after the opening grace period. Earlier spawns retain their original health and speed.
+| Wave | Time | Spawns / second, start → end | Primary HP | Expected new enemies | New enemy speed at start |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 1 | 0:00–1:00 | 0.40 → 0.50 | 100 | 27 | 3.20 |
+| 2 | 1:00–2:00 | 0.50 → 0.65 | 100 | 34.5 | 3.21 |
+| 3 | 2:00–3:00 | 0.65 → 1.00 | 180 | 49.5 | 3.27 |
+| 4 | 3:00–4:00 | 1.00 → 1.50 | 260 | 75 | 3.45 |
+| 5 | 4:00–5:00 | 1.50 → 3.00 | 350 | 135 | 3.80 |
+| 6 | 5:00–6:00 | 3.00 → 7.00 | 450 | 300 | 4.36 |
+| 7 | 6:00–7:00 | 7.00 → 11.00 | 550 | 540 | 5.21 |
+| 8 | 7:00–8:00 | 11.00 → 15.00 | 650 | 780 | 6.39 |
+| 9 | 8:00–9:00 | 15.00 → 20.00 | 800 | 1,050 | 7.96 |
+| 10 | 9:00–10:00 | 20.00 → 26.00 | 950 | 1,380 | 9.98 |
 
-## Calculations
+## Spawn geometry
 
-Expected single-target damage per second is:
+All enemies, including the initial seven, spawn on one of four perimeter lines: `x = ±46` or `z = ±46`, with the other coordinate uniformly sampled between −46 and +46. The walls' inner faces are at ±47.5; the largest enemy's half-width is about 0.89, leaving clearance. There are no player-centred spawn circles or central spawn points.
 
-`damage × projectiles hitting × attack_speed / BASE_ATTACK_INTERVAL × (1 + crit_chance × (CRIT_DAMAGE_MULTIPLIER - 1))`.
+Candidates within 18 horizontal units of the player are rejected. After 24 attempts, the fallback uses the opposite corner, still on the perimeter. The rules test checks 1,400 samples with the player at the centre, each side and opposite corners, including wall clearance, minimum distance and coverage of all four sides.
 
-Base DPS is `100 / 0.65 × 1.05 = 161.5`. Even at 70% hit accuracy, 113 DPS exceeds the opening spawn load of 40–65 HP/second. Regeneration stays at 2 HP/second for the first two minutes, then declines linearly to 0.5. This gives beginners time to learn and collect upgrades.
+## Difficulty calculations
 
-The area under the piecewise linear rate curve gives enemies per minute: `60 × (start_rate + end_rate) / 2`. The opening minutes spawn approximately 27 and 34.5 enemies; the last minute spawns approximately 600. Across the run the curve generates about 2,034 enemies, plus the initial seven and boss. The actual spawn clock retains fractional debt, including when a frame is slower than one spawn interval.
+Enemies per wave are the area under the rate curve: `60 × (start_rate + end_rate) / 2`. The curve generates about 4,371 enemies, plus seven initial enemies: **4,378 per run**, versus about 2,034 in the previous balance. Waves six through ten supply 4,050 of those spawns. The final minute supplies 1,380, versus 600 previously. Fractional spawn debt is retained, so slow frames still create the requested number of enemies.
 
-In the last tier, 85% of spawns have 1,500 HP and 15% have 1,200 HP, giving mean health 1,455. Incoming health rises from `8.5 × 1,455 = 12,367.5` to `11.5 × 1,455 = 16,732.5 HP/second`. Ricochets, explosions, vortex grouping and star pickups supply crowd damage; concentrating only on the boss leaves a growing crowd.
+Base expected damage is `damage × projectiles hitting × attack_speed / 0.65 × (1 + crit_chance)`. Base DPS is `100 / 0.65 × 1.05 = 161.5`; at 70% accuracy it is 113 DPS, comfortably above the opening load of 40–65 HP/second. The first two minutes only spawn 100 HP red cubes.
 
-A reference late build with five projectiles, 555 damage, 3.05 attack speed and 17% crit has about 15,235 theoretical boss DPS when every projectile hits. Dodging, obstructing enemies and missed volleys reduce this. The 500,000 HP boss takes 55.6 seconds at 9,000 effective DPS, leaving 4.4 seconds. Health is fixed, so better upgrades and aim improve the margin; it does not secretly scale with the player's build.
+Late enemies have less health than before to reward clearing large groups. In wave ten, 85% have 950 HP and 15% have 800 HP: mean health is **927.5 HP**. Incoming health rises from `20 × 927.5 = 18,550` to `26 × 927.5 = 24,115 HP/second`. One reference build at 9:00 has seven projectiles, 525 damage, 4.47 attack speed and 28% crit: approximately 32,349 theoretical direct DPS if every projectile hits, or 22,644 at 70%. Ricochets, explosions and abilities add crowd damage; spread, travel time, walls and missed volleys reduce effective damage. This is a pressure budget, not a guarantee of clearing every spawn.
 
-Normal walking is 9 units/second, full bunny hopping is 18, and late enemies approach 10. Movement becomes necessary. Dash protects for `0.5 / 3 = 16.7%` of its cooldown, compared with the previous 90.9%. A shared 0.45-second hit recovery prevents a crowd from delivering many hits in one frame. The scaled boss now has a contact radius matching its body; the old 1.2-unit check made it struggle to hit the player.
+New enemy speed is `3.2 + (12.5 − 3.2) × (elapsed / 600)^3`. The delayed increase lets the middle waves fill the arena before the fastest enemies arrive. Final-wave new enemies accelerate from 9.98 to 12.5, exceeding the player's 9-unit walking speed. Full bunny hopping reaches 18, but enemies approach from all sides and intercept routes.
+
+Each contact hit deals **7 HP**, with a shared 0.45-second recovery window and a per-enemy 0.8-second cooldown. Regeneration stays at 2 HP/second for the first two minutes, then declines to 0.5. Its final-minute integral is **35.625 HP**, approximately five contact hits. A saturated crowd can deal up to `7 / 0.45 = 15.56 HP/second`; after final regeneration it can drain full health in about **6.64 seconds**. Dash protects for only `0.5 / 3 = 16.7%` of its cooldown. Continuous crowd contact is fatal even with regeneration.
 
 ## Full-run playtests
 
-These are automated pilots playing the actual Godot scene at 60 physics ticks/second. They move, aim with a limited turn speed, fire physical projectiles, collect real pickups, choose from real upgrade offers and use abilities at their actual cooldowns. They never teleport, inject damage, grant XP/upgrades or skip the survival timer. Headless Godot cannot capture a cursor, so the harness mirrors held-fire projectile creation using the normal attack cooldown. The casual pilot walks without bunny hopping or dashing but still aims and uses abilities effectively; it is not a measured human skill level.
+Automated pilots play the actual Godot scene at 60 physics ticks per simulated second. They move, aim with limited turn speed, fire physical projectiles, collect real pickups, select real upgrade offers and use abilities at their actual cooldowns. They never teleport, inject damage, grant XP/upgrades or skip the timer. Headless Godot cannot capture a cursor, so its harness mirrors held-fire creation at the normal attack cooldown. The casual pilot walks without jumping or dashing, but still aims and uses abilities effectively. These labels describe bot behaviour, not measured human skill levels.
 
-| Pilot / seed | First 2 minutes | Boss defeated at | Outcome |
-| --- | --- | --- | --- |
-| Skilled / 11 | 100 HP | 9:40.97 | Won with 56.9 HP |
-| Skilled / 27 | 100 HP | 9:58.22 | Won with 78.9 HP; 1.78 seconds spare |
-| Casual / 11 | 100 HP | 9:23.82 | Won with 18.7 HP; minimum 18.0 |
-| Skilled / 1337 | 100 HP | 9:29.03 | Died at 9:55.62 despite killing boss |
-| Rendered skilled / 27 | 100 HP | Still alive | Died at 9:39.75; boss had 117,050 HP |
+Release results are recorded below; full traces are kept in `tests/results/horde_playtests.txt`.
 
-The runs show an easy opening and a beatable ending with genuine failures near the finish. Stronger builds can kill the boss earlier but must still survive the complete final minute. Rendered input timing can produce a different run from headless timing. Automated results and a visual opening check do not establish a human win percentage. Additional live Computer Use was stopped by the user. A final headless rerun reproduced seed 27's 9:58.22 boss kill.
+| Pilot / seed | Outcome | Final-wave minimum HP | Final-wave damage | Peak alive |
+| --- | --- | ---: | ---: | ---: |
+| Skilled / 1337 | Won at 10:00 with 20.5 HP | 18.5 | 70 | 149 |
+| Skilled / 11 | Won at 10:00 with 48.9 HP | 48.3 | 70 | 151 |
+| Skilled / 27 | Died at 9:30.35 | 0 | 56 | 175 |
+| Casual / 11 | Died at 9:37.07 | 0 | 49 | 186 |
+| Rendered skilled / 1337 | Died at 9:28.72 | 0 | 77 | 166 |
+
+All five pilots were at full health at the two-minute checkpoint. The 1337 headless winner entered the final wave with 54.9 HP: approximately `54.9 + 35.625 − 70 = 20.5` at the finish. Its 18.5 HP low point leaves fewer than three additional 7 HP hits of margin. The stronger seed 11 build has more breathing room; other builds die under the same fixed settings. Visual checks at 8:00 and 9:00 showed the real crowd, pickups, health bars and final-wave HUD without layout clipping.
+
+Tuning used complete runs, rather than shortened final-wave simulations. The initial fast speed curve killed skilled pilots in waves seven/eight. Delaying the speed ramp moved the failure point to wave nine. Reducing contact damage allowed complete runs, and the final 7 HP setting tightened the margin while preserving the large hordes. No difficulty scales secretly with the player's build.
+
+The outcomes establish that actual earned builds can complete the timer and that other builds fail under the final pressure. They do not establish a human win percentage. Rendered and headless held-fire timing can produce different upgrades and outcomes even with the same seed. Browser UI automation was unavailable during this verification; the exported pack was instead loaded directly in Godot and checked with the survival/spawn rules test.
 
 Run a full playtest:
 
 ```powershell
-godot --headless --path . --fixed-fps 60 --script tests/balance_playtest.gd -- --seed=27 --pilot=skilled
+godot --headless --path . --fixed-fps 60 --script tests/balance_playtest.gd -- --seed=1337 --pilot=skilled
 ```
 
-Use `--pilot=casual` to test walking, or `--pilot=passive` to omit abilities. Use `--seconds=120` for an opening-only run. Omit `--headless` to watch the pilot. Playtest records are isolated from the player's saved records.
+Use `--pilot=casual` for walking, `--pilot=passive` to omit abilities, or `--seconds=120` for an opening check. Omit `--headless` and add `--capture` to render the pilot and save minute screenshots in `.testdata/`. Captured runs disable vsync to accelerate the fixed-tick test. The harness does not save player records.
 
-Run the focused rules check:
+Run focused rules and exported-pack verification:
 
 ```powershell
 godot --headless --path . --fixed-fps 60 --script tests/balance_rules_test.gd
+godot --headless --path . --main-pack docs/index.pck --fixed-fps 60 --script C:/R/game-3/tests/balance_rules_test.gd
 ```
+
+Eight focused checks cover spawning, survival victory/death, movement, fireballs, upgrades, skills, dash collision, explosion/vortex effects and lobby flow. The release Web export uses the installed single-threaded template; keep every exported `docs/` file together.
 
 ## Adjustment guide
 
-- Change the first three `ENEMY_SPAWN_RATES` or `OPENING_GRACE_DURATION` to adjust the easy opening.
-- Change the last three rates, last health tiers or `ENEMY_SPEED_END` to adjust late crowd pressure.
-- Change `BOSS_HEALTH` to adjust the damage deadline: at 9,000 effective DPS, 9,000 HP changes the fight by about one second. `BOSS_SPEED`, `BOSS_SCALE` and contact damage also affect pressure and volley hit rates.
-- Change `HEALTH_REGEN_END`, `PLAYER_HIT_GRACE` or `DASH_COOLDOWN` to adjust the player's margin for mistakes.
-- XP coefficients, drop values, upgrade amounts and rarity weights control power growth. Changing these requires another full-run check, because they also change boss damage substantially.
-- Keep the spawn-rate values positive. Keep ten health tiers; their colours and visuals are defined for ten types.
+- Change the first six `ENEMY_SPAWN_RATES` to tune the opening and the transition after wave five; change the last five for horde size.
+- Prefer tuning late HP and contact damage over removing enemies when the horde is too harsh. Keep ten health tiers.
+- `ENEMY_SPEED_END` and `ENEMY_SPEED_RAMP_EXPONENT` control how early fast enemies intercept the player.
+- `HEALTH_REGEN_END`, `PLAYER_HIT_GRACE` and `DASH_COOLDOWN` control the margin for mistakes.
+- XP, drops, upgrade amounts and rarity weights affect crowd-clearing power and require complete reruns after changes.
+- Keep spawn-rate values positive. Keep spawns on the perimeter and at least 18 units from the player.

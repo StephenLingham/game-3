@@ -7,13 +7,15 @@ var scene: Node
 var pilot := "skilled"
 var run_seed := 11
 var next_report := 60.0
-var boss_killed_at := -1.0
+var peak_alive := 0
+var final_minimum_health := 100.0
 var damage_taken := 0.0
 var final_damage_taken := 0.0
 var minimum_health := 100.0
 var orbit_sign := 1.0
 var action_releases := {}
 var max_time := 601.0
+var capture := false
 
 class PlaytestRecords:
 	extends "res://scripts/run_stats.gd"
@@ -25,6 +27,7 @@ func _initialize() -> void:
 		if arg.begins_with("--seed="): run_seed = int(arg.get_slice("=", 1))
 		if arg.begins_with("--pilot="): pilot = arg.get_slice("=", 1)
 		if arg.begins_with("--seconds="): max_time = float(arg.get_slice("=", 1))
+		if arg == "--capture": capture = true
 	call_deferred("_run")
 
 func _run() -> void:
@@ -33,9 +36,13 @@ func _run() -> void:
 	root.add_child(scene)
 	current_scene = scene
 	seed(run_seed)
+	if capture and DisplayServer.get_name() != "headless":
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		DisplayServer.window_set_size(Vector2i(1280, 720))
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	scene.player.hurt.connect(func(amount: float):
 		damage_taken += amount
-		if scene.elapsed >= scene.GameConsts.BOSS_SPAWN_TIME: final_damage_taken += amount)
+		if scene.elapsed >= scene.RUN_DURATION * 0.9: final_damage_taken += amount)
 	Input.action_press("fire")
 	physics_frame.connect(_drive)
 
@@ -43,13 +50,14 @@ func _drive() -> void:
 	if not is_instance_valid(scene): return
 	if scene.pause_active: return
 	minimum_health = minf(minimum_health, scene.player_health)
-	if scene.boss_defeated and boss_killed_at < 0.0: boss_killed_at = scene.elapsed
+	peak_alive = maxi(peak_alive, scene._alive_enemy_count())
+	if scene.elapsed >= scene.RUN_DURATION * 0.9: final_minimum_health = minf(final_minimum_health, scene.player_health)
 	if scene.elapsed >= next_report:
 		_report()
 		next_report += 60.0
 	if scene.game_over or scene.elapsed >= max_time:
 		_report()
-		print("RESULT seed=%d pilot=%s victory=%s boss_killed_at=%.2f minimum_hp=%.1f damage=%.1f final_damage=%.1f" % [run_seed, pilot, scene.boss_defeated and scene.player_health > 0.0, boss_killed_at, minimum_health, damage_taken, final_damage_taken])
+		print("RESULT seed=%d pilot=%s victory=%s finished_at=%.2f hp=%.1f minimum_hp=%.1f final_minimum_hp=%.1f damage=%.1f final_damage=%.1f peak_alive=%d" % [run_seed, pilot, scene.game_over and scene.elapsed >= scene.RUN_DURATION and scene.player_health > 0.0, scene.elapsed, scene.player_health, minimum_health, final_minimum_health, damage_taken, final_damage_taken, peak_alive])
 		for action in ["fire", "move_forward", "move_back", "move_left", "move_right", "jump", "dash"]: Input.action_release(action)
 		quit(0)
 		return
@@ -80,7 +88,7 @@ func _drive() -> void:
 		if distance < nearest_distance:
 			nearest_distance = distance
 			nearest = enemy
-	var aim: Node3D = scene.boss if scene.boss_spawned and not scene.boss_defeated else nearest
+	var aim: Node3D = nearest
 	if is_instance_valid(aim):
 		var center: Vector3 = aim.global_position + Vector3.UP * 0.68 * aim.scale.y
 		# Lead a moving target by its projectile flight time.
@@ -107,7 +115,7 @@ func _drive() -> void:
 		if distance < pickup_distance:
 			pickup_target = pickup
 			pickup_distance = distance
-	if is_instance_valid(pickup_target) and nearest_distance > 5.0 and not (scene.boss_spawned and not scene.boss_defeated):
+	if is_instance_valid(pickup_target) and nearest_distance > 5.0:
 		desired = pickup_target.global_position - pos
 		desired.y = 0.0
 	if is_instance_valid(nearest) and nearest_distance < 4.0:
@@ -150,4 +158,9 @@ func _upgrade_score(offer: Dictionary) -> float:
 	return 0.0
 
 func _report() -> void:
-	print("TRACE t=%.2f physics=%d hop=%d pos=%s hp=%.1f level=%d kills=%d alive=%d boss_hp=%.0f stats=%s" % [scene.elapsed, Engine.get_physics_frames(), scene.player.hop_chain, scene.player.position, scene.player_health, scene.level, scene.kills, scene._alive_enemy_count(), scene.boss.health if scene.boss_spawned and not scene.boss_defeated else 0.0, scene.stats])
+	print("TRACE t=%.2f physics=%d hop=%d pos=%s hp=%.1f level=%d kills=%d alive=%d stats=%s" % [scene.elapsed, Engine.get_physics_frames(), scene.player.hop_chain, scene.player.position, scene.player_health, scene.level, scene.kills, scene._alive_enemy_count(), scene.stats])
+	if capture and DisplayServer.get_name() != "headless": _capture.call_deferred(int(scene.elapsed))
+
+func _capture(second: int) -> void:
+	await RenderingServer.frame_post_draw
+	root.get_texture().get_image().save_png("res://.testdata/horde-%d-%s-%d.png" % [run_seed, pilot, second])

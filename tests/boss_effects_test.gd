@@ -29,15 +29,13 @@ func _run() -> void:
 	check(not enemy.ice_shell.visible, "freeze effect clears")
 	scene.elapsed = 539.0
 	scene._process(0.5)
-	check(not scene.boss_spawned, "boss does not spawn early")
+	check(get_nodes_in_group("bosses").is_empty(), "boss is absent before the final wave")
 	scene._process(0.5)
-	check(scene.boss_spawned and scene.boss.health == scene.GameConsts.BOSS_HEALTH, "boss spawns at nine minutes")
-	var health: float = scene.boss.health
-	scene.boss.defeat()
-	check(scene.boss.health < health and not scene.boss.defeated, "boss resists contact instant kills")
+	check(get_nodes_in_group("bosses").is_empty(), "final wave contains only the horde")
+	check(not scene.game_over, "final wave must be survived completely")
 	scene.elapsed = 599.9
 	scene._process(0.1)
-	check(scene.game_over and "Failed" in scene.upgrade_title.text, "living boss causes failure at ten minutes")
+	check(scene.game_over and "Victory" in scene.upgrade_title.text, "survival wins at ten minutes")
 	paused = false
 	scene.queue_free()
 	await process_frame
@@ -46,13 +44,11 @@ func _run() -> void:
 	second.set_process(false)
 	second.elapsed = 540.0
 	second._process(0.01)
-	second.boss.take_damage(second.boss.health)
-	check(second.boss_defeated and not second.game_over, "killing boss does not end run early")
-	second.elapsed = 599.9
-	second._process(0.1)
-	check(second.game_over and "Victory" in second.upgrade_title.text, "survival plus boss kill wins")
+	second.player_health = 1.0
+	second._on_player_hurt(12.0)
+	check(second.game_over and "Run Over" in second.upgrade_title.text, "death in the final wave still loses")
 	if failures.is_empty():
-		print("BOSS AND EFFECTS TEST PASSED")
+		print("HORDE SURVIVAL AND EFFECTS TEST PASSED")
 		quit(0)
 	else:
 		for failure in failures:

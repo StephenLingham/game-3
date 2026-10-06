@@ -1,6 +1,5 @@
 extends Node3D
 
-const BossScript = preload("res://scripts/boss.gd")
 const PlayerScript = preload("res://scripts/player.gd")
 const EnemyScript = preload("res://scripts/enemy.gd")
 const FireballScript = preload("res://scripts/fireball.gd")
@@ -52,9 +51,6 @@ var star_spawn_clock := STAR_SPAWN_INTERVAL
 var elapsed := 0.0
 var kills := 0
 var upgrade_active := false
-var boss: CharacterBody3D
-var boss_spawned := false
-var boss_defeated := false
 var game_over := false
 var pause_active := false
 var current_offers: Array[Dictionary] = []
@@ -105,14 +101,8 @@ func _process(delta: float) -> void:
 		return
 	elapsed += delta
 	player_health = minf(GameConsts.PLAYER_MAX_HEALTH, player_health + _health_regen(elapsed) * delta)
-	if not boss_spawned and elapsed >= GameConsts.BOSS_SPAWN_TIME:
-		_spawn_boss()
 	if elapsed >= RUN_DURATION:
-		if boss_defeated:
-			_win_run()
-		else:
-			_game_over()
-			upgrade_title.text = "Run Failed — Boss Still Alive\n\nDefeat the final boss before %s.\n\nPress R To Run Again" % _format_time(RUN_DURATION)
+		_win_run()
 		return
 	enemy_spawn_clock -= delta
 	relic_spawn_clock -= delta
@@ -268,17 +258,28 @@ func _spawn_enemy() -> void:
 	var enemy := EnemyScript.new()
 	enemy.add_to_group("enemies")
 	enemy.process_mode = Node.PROCESS_MODE_PAUSABLE
-	var angle := randf() * TAU
-	var distance := randf_range(GameConsts.ENEMY_SPAWN_DISTANCE_MIN, GameConsts.ENEMY_SPAWN_DISTANCE_MAX)
-	var candidate: Vector3 = player.global_position + Vector3(cos(angle), 0, sin(angle)) * distance
-	candidate.x = clampf(candidate.x, -44.0, 44.0)
-	candidate.z = clampf(candidate.z, -44.0, 44.0)
-	enemy.position = Vector3(candidate.x, 0.05, candidate.z)
+	enemy.position = _enemy_spawn_position()
 	add_child(enemy)
 	var enemy_type := _choose_enemy_type(elapsed)
 	enemy.setup(player, enemy_type, ENEMY_HEALTH[enemy_type], ENEMY_COLORS[enemy_type])
 	enemy.move_speed = lerpf(GameConsts.ENEMY_SPEED_START, GameConsts.ENEMY_SPEED_END, pow(clampf(elapsed / RUN_DURATION, 0.0, 1.0), GameConsts.ENEMY_SPEED_RAMP_EXPONENT))
 	enemy.died.connect(_on_enemy_died)
+
+func _enemy_spawn_position() -> Vector3:
+	var edge := GameConsts.ENEMY_SPAWN_EDGE
+	var player_pos := Vector2(player.global_position.x, player.global_position.z)
+	for attempt in 24:
+		var along := randf_range(-edge, edge)
+		var candidate: Vector2
+		match randi_range(0, 3):
+			0: candidate = Vector2(-edge, along)
+			1: candidate = Vector2(edge, along)
+			2: candidate = Vector2(along, -edge)
+			3: candidate = Vector2(along, edge)
+		if candidate.distance_to(player_pos) >= GameConsts.ENEMY_SPAWN_DISTANCE_MIN:
+			return Vector3(candidate.x, 0.05, candidate.y)
+	# Bounded fallback stays on the perimeter and safely opposite the player.
+	return Vector3(-edge if player_pos.x >= 0.0 else edge, 0.05, -edge if player_pos.y >= 0.0 else edge)
 
 func _enemy_spawn_interval(at_time: float) -> float:
 	var rates: Array = GameConsts.ENEMY_SPAWN_RATES
@@ -727,7 +728,7 @@ func _win_run() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	for child in cards_row.get_children():
 		child.queue_free()
-	upgrade_title.text = "Victory — Boss Defeated!\n\n%s Complete  •  Level %d  •  %d Enemies Defeated\n\nPress R To Play Again" % [_format_time(RUN_DURATION), level, kills]
+	upgrade_title.text = "Victory — Horde Survived!\n\n%s Complete  •  Level %d  •  %d Enemies Defeated\n\nPress R To Play Again" % [_format_time(RUN_DURATION), level, kills]
 	upgrade_overlay.visible = true
 
 func _build_hud() -> void:
@@ -1054,24 +1055,7 @@ func _update_hud() -> void:
 	var spawn_rate := 1.0 / _enemy_spawn_interval(elapsed)
 	var primary_type := _primary_enemy_type(elapsed)
 	wave_label.text = "Wave %d/10  •  %d HP  •  %d Alive  •  %d Defeated  •  Spawn %.1f/s  •  %02d:%02d Remaining" % [primary_type + 1, int(ENEMY_HEALTH[primary_type]), _alive_enemy_count(), kills, spawn_rate, run_remaining / 60, run_remaining % 60]
-	if boss_spawned:
-		wave_label.text += "\nBoss defeated" if boss_defeated else "\nFINAL BOSS: %d / %d HP" % [int(boss.health), int(boss.max_health)]
-
-func _spawn_boss() -> void:
-	boss_spawned = true
-	boss = BossScript.new()
-	boss.name = "FinalBoss"
-	boss.add_to_group("enemies")
-	boss.process_mode = Node.PROCESS_MODE_PAUSABLE
-	var forward: Vector3 = -player.global_transform.basis.z
-	var spawn: Vector3 = player.global_position + forward * GameConsts.BOSS_SPAWN_DISTANCE
-	spawn.x = clampf(spawn.x, -40.0, 40.0)
-	spawn.z = clampf(spawn.z, -40.0, 40.0)
-	boss.position = Vector3(spawn.x, 0.05, spawn.z)
-	add_child(boss)
-	boss.setup(player, 9, GameConsts.BOSS_HEALTH, Color("b92cff"))
-	boss.scale = Vector3.ONE * GameConsts.BOSS_SCALE
-	boss.move_speed = GameConsts.BOSS_SPEED
-	boss.died.connect(_on_enemy_died)
-	boss.died.connect(func(_enemy: Node, _pos: Vector3, _attack: int, _damage: float): boss_defeated = true)
-	_show_pickup_message("FINAL BOSS\nDefeat it before %s!" % _format_time(RUN_DURATION), Color("ffba38"))
+	if primary_type == ENEMY_HEALTH.size() - 1:
+		wave_label.text += "\nFINAL WAVE — Survive the horde!"
+	elif primary_type >= ENEMY_HEALTH.size() / 2:
+		wave_label.text += "\nHORDE WAVES — Enemies pouring in from the edges"

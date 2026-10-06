@@ -154,9 +154,7 @@ func _run() -> void:
 	scene._set_pause(false)
 	_check(not scene.pause_active and not paused and not scene.pause_overlay.visible, "resuming hides the pause screen and continues gameplay")
 
-	# Reaching the deadline requires a defeated boss as well as survival.
-	scene._spawn_boss()
-	scene.boss.take_damage(scene.boss.health)
+	# Surviving the full timer wins without a boss or clearing remaining enemies.
 	scene.elapsed = scene.RUN_DURATION - 0.1
 	scene._process(0.2)
 	_check(scene.game_over and paused, "surviving ten minutes ends the run")
