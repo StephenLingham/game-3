@@ -158,7 +158,10 @@ func _run() -> void:
 	scene.elapsed = scene.RUN_DURATION - 0.1
 	scene._process(0.2)
 	_check(scene.game_over and paused, "surviving ten minutes ends the run")
-	_check("Victory" in scene.upgrade_title.text, "ten-minute survival displays the victory screen")
+	_check(root.get_node("RunStats").last_run.won, "ten-minute survival records victory")
+	await process_frame
+	await process_frame
+	_check(current_scene.name == "Results" and not paused, "ten-minute survival opens the separate results screen")
 
 	Input.action_release("move_forward")
 	Input.action_release("jump")

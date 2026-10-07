@@ -19,6 +19,16 @@ func _run() -> void:
 		previous_rate = rate
 	assert(1.0 / scene._enemy_spawn_interval(120.0) < 0.7, "Opening two minutes remain gentle")
 	assert(scene._health_regen(120.0) == scene.GameConsts.HEALTH_REGEN_START)
+	assert(is_equal_approx(1.0 / scene._enemy_spawn_interval(540.0), 100.0), "Final wave starts at 100 spawns per second")
+	assert(is_equal_approx(1.0 / scene._enemy_spawn_interval(599.0), 100.0), "Final wave sustains 100 spawns per second")
+	assert(scene._enemy_health_for_type(9) == 1900.0, "Final enemy health is doubled")
+	for time in [0.0, 120.0, 300.0, 540.0, 599.0]:
+		scene.elapsed = time
+		scene._spawn_enemy()
+		var spawned = get_nodes_in_group("enemies").back()
+		spawned.set_physics_process(false)
+		assert(is_equal_approx(spawned.move_speed, 3.2), "Enemy speed stays constant through the run")
+	scene.elapsed = 0.0
 	assert(is_equal_approx(scene._health_regen(scene.RUN_DURATION), scene.GameConsts.HEALTH_REGEN_END))
 	for i in 100:
 		assert(scene._choose_enemy_type(119.0) == 0, "Opening enemies are always one-shot red cubes")
@@ -43,8 +53,9 @@ func _run() -> void:
 	scene.elapsed = 570.0
 	scene.enemy_spawn_clock = 0.0
 	var count_before: int = scene._alive_enemy_count()
-	scene._process(0.5)
-	var expected_spawns := int(floor(0.5 / scene._enemy_spawn_interval(scene.elapsed))) + 1
+	# Avoid an exact floating-point interval boundary (100/s gives 0.01s).
+	scene._process(0.505)
+	var expected_spawns := int(floor(0.505 / scene._enemy_spawn_interval(scene.elapsed))) + 1
 	assert(scene._alive_enemy_count() == count_before + expected_spawns, "Slow frames must repay all late-wave spawn debt")
 	scene.player_health = scene.GameConsts.PLAYER_MAX_HEALTH
 	scene.player.hurt_cooldown = 0.0
@@ -59,6 +70,9 @@ func _run() -> void:
 	assert(get_nodes_in_group("bosses").is_empty(), "Late waves must not spawn a boss")
 	scene.elapsed = scene.RUN_DURATION - 0.01
 	scene._process(0.02)
-	assert(scene.game_over and "Victory" in scene.upgrade_title.text, "Surviving the full timer wins with enemies still alive")
+	assert(scene.game_over and root.get_node("RunStats").last_run.won, "Surviving the full timer wins with enemies still alive")
+	await process_frame
+	await process_frame
+	assert(current_scene.name == "Results" and not paused, "Victory opens a separate results scene")
 	print("BALANCE RULES PASSED: opening, horde ramp, perimeter spawns, regeneration, spawn debt, survival victory, hit grace and dash uptime")
 	quit(0)

@@ -16,6 +16,7 @@ var orbit_sign := 1.0
 var action_releases := {}
 var max_time := 601.0
 var capture := false
+var finished := false
 
 class PlaytestRecords:
 	extends "res://scripts/run_stats.gd"
@@ -35,6 +36,8 @@ func _run() -> void:
 	scene = load("res://main.tscn").instantiate()
 	root.add_child(scene)
 	current_scene = scene
+	scene.tree_exiting.connect(func():
+		if scene.game_over: _finish())
 	seed(run_seed)
 	if capture and DisplayServer.get_name() != "headless":
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
@@ -56,10 +59,7 @@ func _drive() -> void:
 		_report()
 		next_report += 60.0
 	if scene.game_over or scene.elapsed >= max_time:
-		_report()
-		print("RESULT seed=%d pilot=%s victory=%s finished_at=%.2f hp=%.1f minimum_hp=%.1f final_minimum_hp=%.1f damage=%.1f final_damage=%.1f peak_alive=%d" % [run_seed, pilot, scene.game_over and scene.elapsed >= scene.RUN_DURATION and scene.player_health > 0.0, scene.elapsed, scene.player_health, minimum_health, final_minimum_health, damage_taken, final_damage_taken, peak_alive])
-		for action in ["fire", "move_forward", "move_back", "move_left", "move_right", "jump", "dash"]: Input.action_release(action)
-		quit(0)
+		_finish()
 		return
 	if scene.upgrade_active:
 		var best := 0
@@ -140,6 +140,18 @@ func _set_axis(positive: String, negative: String, value: float) -> void:
 	Input.action_release(negative)
 	if value > 0.05: Input.action_press(positive, value)
 	elif value < -0.05: Input.action_press(negative, -value)
+
+func _finish() -> void:
+	if finished:
+		return
+	finished = true
+	minimum_health = minf(minimum_health, scene.player_health)
+	if scene.elapsed >= scene.RUN_DURATION * 0.9:
+		final_minimum_health = minf(final_minimum_health, scene.player_health)
+	print("RESULT seed=%d pilot=%s victory=%s finished_at=%.2f hp=%.1f minimum_hp=%.1f final_minimum_hp=%.1f damage=%.1f final_damage=%.1f peak_alive=%d total_damage=%.1f kills=%d level=%d" % [run_seed, pilot, scene.game_over and scene.elapsed >= scene.RUN_DURATION and scene.player_health > 0.0, scene.elapsed, scene.player_health, minimum_health, final_minimum_health, damage_taken, final_damage_taken, peak_alive, scene.run_total_damage, scene.kills, scene.level])
+	for action in ["fire", "move_forward", "move_back", "move_left", "move_right", "jump", "dash"]:
+		Input.action_release(action)
+	quit(0)
 
 func _pulse(action: String) -> void:
 	if action_releases.has(action): return

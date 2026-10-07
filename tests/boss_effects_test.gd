@@ -5,6 +5,7 @@ func _initialize() -> void:
 func _run() -> void:
 	var scene = load("res://main.tscn").instantiate()
 	root.add_child(scene)
+	current_scene = scene
 	await physics_frame
 	scene.set_process(false)
 	scene.player.set_physics_process(false)
@@ -35,18 +36,24 @@ func _run() -> void:
 	check(not scene.game_over, "final wave must be survived completely")
 	scene.elapsed = 599.9
 	scene._process(0.1)
-	check(scene.game_over and "Victory" in scene.upgrade_title.text, "survival wins at ten minutes")
-	paused = false
-	scene.queue_free()
+	check(scene.game_over and root.get_node("RunStats").last_run.won, "survival wins at ten minutes")
+	await process_frame
+	await process_frame
+	check(current_scene.name == "Results", "victory leaves the arena")
+	current_scene.queue_free()
 	await process_frame
 	var second = load("res://main.tscn").instantiate()
 	root.add_child(second)
+	current_scene = second
 	second.set_process(false)
 	second.elapsed = 540.0
 	second._process(0.01)
 	second.player_health = 1.0
 	second._on_player_hurt(12.0)
-	check(second.game_over and "Run Over" in second.upgrade_title.text, "death in the final wave still loses")
+	check(second.game_over and not root.get_node("RunStats").last_run.won, "death in the final wave still loses")
+	await process_frame
+	await process_frame
+	check(current_scene.name == "Results", "death leaves the arena")
 	if failures.is_empty():
 		print("HORDE SURVIVAL AND EFFECTS TEST PASSED")
 		quit(0)

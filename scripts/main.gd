@@ -59,6 +59,8 @@ var skill_labels: Array[Label] = []
 var skill_bars: Array[ProgressBar] = []
 var tutorial_overlay: ColorRect
 var run_max_damage := 0.0
+var run_total_damage := 0.0
+var run_damage_taken := 0.0
 var run_max_attack_kills := 0
 var attack_kills: Dictionary = {}
 var next_attack_id := 1
@@ -82,6 +84,7 @@ var pickup_message_tween: Tween
 var pause_overlay: ColorRect
 
 func _ready() -> void:
+	RunStats.last_run = {}
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	if DisplayServer.get_name() != "headless":
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MAXIMIZED)
@@ -131,9 +134,6 @@ func _input(event: InputEvent) -> void:
 			if not game_over and not upgrade_active:
 				_set_pause(not pause_active)
 			get_viewport().set_input_as_handled()
-		elif game_over and event.keycode == KEY_R:
-			get_tree().paused = false
-			get_tree().reload_current_scene()
 		elif not game_over and not pause_active and not upgrade_active and event.keycode >= KEY_1 and event.keycode <= KEY_4:
 			_use_skill(int(event.keycode - KEY_1) + 1)
 	elif event is InputEventMouseButton and event.pressed and event.is_action_pressed("mega_fireball"):
@@ -262,7 +262,7 @@ func _spawn_enemy() -> void:
 	add_child(enemy)
 	var enemy_type := _choose_enemy_type(elapsed)
 	enemy.setup(player, enemy_type, ENEMY_HEALTH[enemy_type], ENEMY_COLORS[enemy_type])
-	enemy.move_speed = lerpf(GameConsts.ENEMY_SPEED_START, GameConsts.ENEMY_SPEED_END, pow(clampf(elapsed / RUN_DURATION, 0.0, 1.0), GameConsts.ENEMY_SPEED_RAMP_EXPONENT))
+	enemy.damage_dealt.connect(_on_damage_dealt)
 	enemy.died.connect(_on_enemy_died)
 
 func _enemy_spawn_position() -> Vector3:
@@ -356,7 +356,6 @@ func _on_player_fire(origin: Vector3, direction: Vector3) -> void:
 		var spread := deg_to_rad(spread_index * GameConsts.FIREBALL_SPREAD_DEGREES)
 		var shot_direction: Vector3 = center_direction.rotated(Vector3.UP, spread)
 		add_child(projectile)
-		projectile.damage_dealt.connect(_on_damage_dealt)
 		projectile.setup(shot_direction, stats.damage, stats.radius, stats.bounces, stats.crit, player, attack_id)
 
 func _fire_mega_fireball() -> void:
@@ -377,10 +376,15 @@ func _begin_attack() -> int:
 	attack_kills[attack_id] = 0
 	return attack_id
 
-func _on_damage_dealt(amount: float) -> void:
-	run_max_damage = maxf(run_max_damage, amount)
+func _on_damage_dealt(actual_damage: float, hit_damage: float) -> void:
+	if game_over:
+		return
+	run_total_damage += actual_damage
+	run_max_damage = maxf(run_max_damage, hit_damage)
 
 func _on_enemy_died(_enemy: Node, pos: Vector3, attack_id := -1, damage_amount := 0.0) -> void:
+	if game_over:
+		return
 	kills += 1
 	run_max_damage = maxf(run_max_damage, damage_amount)
 	if attack_id >= 0:
@@ -636,6 +640,7 @@ func _on_hop_changed(chain: int, multiplier: float) -> void:
 func _on_player_hurt(amount: float) -> void:
 	if game_over:
 		return
+	run_damage_taken += minf(player_health, maxf(0.0, amount))
 	player_health = maxf(0.0, player_health - amount)
 	if damage_tween and damage_tween.is_valid():
 		damage_tween.kill()
@@ -706,30 +711,37 @@ func _return_to_lobby() -> void:
 	get_tree().change_scene_to_file("res://lobby.tscn")
 
 func _game_over() -> void:
-	_record_run_stats()
-	game_over = true
-	player.alive = false
-	get_tree().paused = true
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	for child in cards_row.get_children():
-		child.queue_free()
-	upgrade_title.text = "Run Over\n\nLevel %d  •  %d Enemies Defeated\n\nPress R To Run Again" % [level, kills]
-	upgrade_overlay.visible = true
-
-func _format_time(seconds: float) -> String:
-	var whole_seconds := ceili(seconds)
-	return "%02d:%02d" % [whole_seconds / 60, whole_seconds % 60]
+	_finish_run(false)
 
 func _win_run() -> void:
-	_record_run_stats()
+	_finish_run(true)
+
+func _finish_run(won: bool) -> void:
+	if game_over:
+		return
 	game_over = true
 	player.alive = false
 	get_tree().paused = true
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	for child in cards_row.get_children():
-		child.queue_free()
-	upgrade_title.text = "Victory — Horde Survived!\n\n%s Complete  •  Level %d  •  %d Enemies Defeated\n\nPress R To Play Again" % [_format_time(RUN_DURATION), level, kills]
-	upgrade_overlay.visible = true
+	_release_mouse_cursor()
+	RunStats.finish_run({
+		"won": won,
+		"duration": minf(elapsed, RUN_DURATION),
+		"wave": _primary_enemy_type(elapsed) + 1,
+		"level": level,
+		"kills": kills,
+		"total_damage": run_total_damage,
+		"damage_taken": run_damage_taken,
+		"biggest_hit": run_max_damage,
+		"best_attack_kills": run_max_attack_kills,
+		"attacks": next_attack_id - 1,
+		"build": stats.duplicate(true),
+	})
+	# Leave collision callbacks before freeing the arena and all gameplay nodes.
+	call_deferred("_show_results")
+
+func _show_results() -> void:
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://results.tscn")
 
 func _build_hud() -> void:
 	var canvas := CanvasLayer.new()

@@ -3,11 +3,12 @@ extends CharacterBody3D
 const EnemyConsts = preload("res://scripts/consts.gd")
 
 signal died(enemy: Node, position: Vector3, attack_id: int, damage_amount: float)
+signal damage_dealt(actual_damage: float, hit_damage: float)
 
 var target: Node3D
 var health := 300.0
 var max_health := 300.0
-var move_speed := 3.2
+var move_speed := EnemyConsts.ENEMY_SPEED
 var touch_cooldown := 0.0
 var contact_damage := EnemyConsts.ENEMY_CONTACT_DAMAGE
 var visual: Node3D
@@ -34,7 +35,7 @@ func setup(player: Node3D, type_index := 0, fixed_health := 100.0, color := Colo
 	enemy_type = type_index
 	max_health = fixed_health
 	health = max_health
-	move_speed = 3.2 + float(type_index) * 0.10
+	move_speed = EnemyConsts.ENEMY_SPEED
 	scale = Vector3.ONE * (1.0 + float(type_index) * 0.035)
 	if is_instance_valid(body_material):
 		body_material.albedo_color = color
@@ -181,8 +182,10 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 
 func take_damage(amount: float, is_crit := false, attack_id := -1) -> void:
-	if defeated:
+	if defeated or amount <= 0.0:
 		return
+	# Count health removed, excluding overkill, for every damage source.
+	damage_dealt.emit(minf(amount, maxf(0.0, health)), amount)
 	health -= amount
 	_update_health_bar()
 	flash_timer = 0.09
@@ -194,6 +197,10 @@ func take_damage(amount: float, is_crit := false, attack_id := -1) -> void:
 func defeat(attack_id := -1, damage_amount := 0.0) -> void:
 	if defeated:
 		return
+	# Star contact and mega fireballs bypass take_damage; count their kills too.
+	if health > 0.0:
+		damage_dealt.emit(health, maxf(health, damage_amount))
+	health = 0.0
 	defeated = true
 	died.emit(self, global_position + Vector3.UP * 0.5, attack_id, damage_amount)
 	queue_free()

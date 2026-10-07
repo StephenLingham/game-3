@@ -13,7 +13,7 @@ func _run() -> void:
 	for enemy in get_nodes_in_group("enemies"):
 		enemy.set_physics_process(false)
 		check(enemy.enemy_type == 0, "opening pack uses red cube enemies")
-		check(enemy.max_health == scene.GameConsts.ENEMY_HEALTH[0] and is_equal_approx(enemy.move_speed, scene.GameConsts.ENEMY_SPEED_START), "opening cubes retain their balanced stats")
+		check(enemy.max_health == scene.GameConsts.ENEMY_HEALTH[0] and is_equal_approx(enemy.move_speed, scene.GameConsts.ENEMY_SPEED), "opening cubes retain their balanced stats")
 		check(is_instance_valid(enemy.body_material), "opening enemy retains its cube material")
 		check(enemy.visual.get_child(0).mesh is BoxMesh, "opening enemy uses the original cube body")
 		check(enemy.visual.get_child_count() == 3, "cube retains its two eyes")

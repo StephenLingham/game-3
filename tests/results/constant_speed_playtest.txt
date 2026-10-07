@@ -1,0 +1,16 @@
+Constant-speed release playtest — 2026-10-07; Godot 4.6.1; fixed 60 physics ticks/second.
+Command: godot --headless --path . --fixed-fps 60 --script tests/balance_playtest.gd -- --seed=1337 --pilot=skilled
+Enemy speed: 3.2 throughout. Final wave: 100 spawns/second, primary health 1,900.
+
+Minute checkpoints (time / HP / level / kills / alive):
+60.02 / 100.0 / 6 / 33 / 1
+120.02 / 100.0 / 10 / 65 / 4
+180.00 / 100.0 / 13 / 115 / 3
+240.00 / 100.0 / 16 / 187 / 6
+300.00 / 100.0 / 20 / 323 / 5
+360.00 / 81.3 / 27 / 767 / 10
+420.02 / 89.5 / 38 / 2005 / 32
+480.02 / 81.9 / 51 / 4682 / 55
+540.02 / 67.1 / 65 / 9429 / 109
+
+RESULT seed=1337 pilot=skilled victory=true finished_at=600.02 hp=74.7 minimum_hp=67.0 final_minimum_hp=67.1 damage=168.0 final_damage=28.0 peak_alive=826 total_damage=17279190.0 kills=15467 level=78

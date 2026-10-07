@@ -11,6 +11,11 @@ const DEFAULTS := {
 }
 
 var records: Dictionary = DEFAULTS.duplicate(true)
+var last_run: Dictionary = {}
+
+func finish_run(result: Dictionary) -> void:
+	last_run = result.duplicate(true)
+	record_run(int(result.level), int(result.kills), float(result.duration), float(result.biggest_hit), int(result.best_attack_kills))
 
 func _ready() -> void:
 	load_records()

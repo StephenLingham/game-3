@@ -5,14 +5,12 @@ const ARENA_HALF := 48.0
 const RUN_DURATION := 600.0
 # Spawn rates at each minute boundary. Interpolate rates, not intervals.
 # First five waves build the character; waves six onward flood the perimeter.
-const ENEMY_SPAWN_RATES := [0.4, 0.5, 0.65, 1.0, 1.5, 3.0, 7.0, 11.0, 15.0, 20.0, 26.0]
+const ENEMY_SPAWN_RATES := [0.4, 0.5, 0.65, 1.0, 1.5, 3.0, 12.0, 30.0, 60.0, 100.0, 100.0]
 const INITIAL_ENEMY_COUNT := 7
-const ENEMY_HEALTH := [100.0, 100.0, 180.0, 260.0, 350.0, 450.0, 550.0, 650.0, 800.0, 950.0]
+const ENEMY_HEALTH := [100.0, 100.0, 180.0, 260.0, 350.0, 450.0, 550.0, 650.0, 800.0, 1900.0]
 const ENEMY_PREVIOUS_TYPE_CHANCE := 0.15
 const ENEMY_NEXT_TYPE_CHANCE := 0.10
-const ENEMY_SPEED_START := 3.2
-const ENEMY_SPEED_END := 12.5
-const ENEMY_SPEED_RAMP_EXPONENT := 3.0
+const ENEMY_SPEED := 3.2
 const ENEMY_SPAWN_DISTANCE_MIN := 18.0
 # Keep even the largest enemy inside the walls (inner face at 47.5).
 const ENEMY_SPAWN_EDGE := ARENA_HALF - 2.0
