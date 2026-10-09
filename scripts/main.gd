@@ -22,12 +22,12 @@ const ENEMY_COLORS := [
 ]
 const RARITIES := GameConsts.RARITIES
 const UPGRADE_DATA := {
-	"projectiles": {"title": "Multishot", "description": "+%s Fireball Projectile", "icon": "▦"},
-	"bounces": {"title": "Ricochet", "description": "+%s Projectile Bounce", "icon": "↗"},
-	"radius": {"title": "Big Bang", "description": "+%s Explosion Radius", "icon": "□"},
-	"damage": {"title": "Inferno", "description": "+%s Fireball Damage", "icon": "◆"},
-	"crit": {"title": "Lucky Spark", "description": "+%s%% Critical Chance", "icon": "✦"},
-	"attack_speed": {"title": "Quick Cast", "description": "+%s%% Attack Speed", "icon": "»"}
+	"projectiles": {"title": "Multishot", "description": "+%s Fireball Projectile"},
+	"bounces": {"title": "Ricochet", "description": "+%s Projectile Bounce"},
+	"radius": {"title": "Big Bang", "description": "+%s Explosion Radius"},
+	"damage": {"title": "Inferno", "description": "+%s Fireball Damage"},
+	"crit": {"title": "Lucky Spark", "description": "+%s%% Critical Chance"},
+	"attack_speed": {"title": "Quick Cast", "description": "+%s%% Attack Speed"}
 }
 
 var player: CharacterBody3D
@@ -591,7 +591,7 @@ func _create_upgrade_card(offer: Dictionary, index: int) -> Button:
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(285, 320)
-	button.text = "%s\n\n%s\n\n%s\n%s\n\nClick To Select" % [data.icon, data.title, description, _upgrade_preview(offer)]
+	button.text = "%s\n\n%s\n%s" % [data.title, description, _upgrade_preview(offer)]
 	button.add_theme_font_size_override("font_size", 21)
 	button.add_theme_color_override("font_color", rarity.color)
 	button.add_theme_color_override("font_hover_color", Color.WHITE)

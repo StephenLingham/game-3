@@ -120,7 +120,7 @@ func _run() -> void:
 	_check(scene.wave_label.global_position.y >= scene.xp_bar.global_position.y + scene.xp_bar.size.y, "top-right status text sits below the level bar")
 	var upgrade_card: Button = scene._create_upgrade_card(scene._make_offer("damage"), 0)
 	_check(upgrade_card.mouse_filter == Control.MOUSE_FILTER_STOP and not upgrade_card.pressed.get_connections().is_empty(), "level-up cards can be clicked")
-	_check("Click To Select" in upgrade_card.text and not "[1]" in upgrade_card.text, "level-up cards show mouse-only selection instructions")
+	_check(upgrade_card.text.begins_with("Inferno\n") and " -> " in upgrade_card.text and not "Click To Select" in upgrade_card.text, "level-up cards show the title and stat change without extra prompts")
 	upgrade_card.free()
 
 	# A magnet affects XP already on the map, not unrelated collectible types.
