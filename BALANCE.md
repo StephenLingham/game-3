@@ -39,13 +39,25 @@ Victory and death release the mouse and replace the arena with `results.tscn`. T
 
 Total damage measures enemy health actually removed, excludes overkill and includes nonlethal hits, explosions, mega fireballs and Star Power. Biggest hit retains the full attack damage. Damage taken measures health actually lost, including lethal hits capped to remaining health. The results snapshot survives scene changes in `RunStats.last_run`; new runs reset it, while personal records remain saved.
 
+## XP progression and build display
+
+Every defeated enemy drops **one blue ball worth 12 XP**. Previously enemies dropped two to four 12-XP balls. The sphere has a brighter unshaded core and a shared soft additive glow billboard, so its glow is visible with the Web compatibility renderer without adding a light for every pickup.
+
+The cost to advance from level `L` is `100 + 42 × (L − 1) + 10 × (L − 1)²`, increased from a quadratic coefficient of 3. Reaching level 40 from level 1 costs **225,212 XP** before relic rewards. All 15,538 scheduled enemies supply about 186,456 XP; collecting gold relics still grants 25% of the current level requirement. Integrating the spawn curve and scheduled relics gives an ideal ten-minute reward budget of **level 40**. Missed pickups, uncollected relics, surviving enemies and early death reduce actual progression; there is no level cap or forced level grant. The real winning pilot below reached level 39.
+
+Escape pauses the timer and displays the current build to the left of the pause actions: damage, critical chance/damage, attack speed multiplier, attacks per second, projectiles, ricochets, explosion radius, pickup radius, health and regeneration. Upgrade cards show `current -> next` values in the stat's units; previews and application share the same calculation, including the 75% critical-chance cap.
+
+Vortex starts at its original 1.35m sphere radius and shrinks smoothly to **25%** over 0.65 seconds. Enemies orbit 3.2–4.2m around its sides, keeping their body centres near its height rather than stacking above it. The centre stays at least the current halo radius plus 0.12m above the floor, including launches aimed straight down. Captured enemies are released when the vortex expires.
+
 Each contact hit deals **7 HP**, with a shared 0.45-second recovery window and a per-enemy 0.8-second cooldown. Regeneration stays at 2 HP/second for the first two minutes, then declines to 0.5. Its final-minute integral is **35.625 HP**, approximately five contact hits. A saturated crowd can deal up to `7 / 0.45 = 15.56 HP/second`; after final regeneration it can drain full health in about **6.64 seconds**. Dash protects for only `0.5 / 3 = 16.7%` of its cooldown. Continuous crowd contact is fatal even with regeneration.
 
 ## Full-run playtests
 
 Automated pilots play the actual Godot scene at 60 physics ticks per simulated second. They move, aim with limited turn speed, fire physical projectiles, collect real pickups, select real upgrade offers and use abilities at their actual cooldowns. They never teleport, inject damage, grant XP/upgrades or skip the timer. Headless Godot cannot capture a cursor, so its harness mirrors held-fire creation at the normal attack cooldown. The casual pilot walks without jumping or dashing, but still aims and uses abilities effectively. These labels describe bot behaviour, not measured human skill levels.
 
-Current release check (2026-10-07): skilled pilot / seed 1337 completed the full ten-minute run with **74.7 HP**, a final-wave minimum of **67.1 HP**, 28 HP of final-wave damage, and **826 peak living enemies**. It finished at level 78 with 15,467 kills and 17,279,190 damage dealt. The ending total includes partial damage to surviving enemies. This is one bot run, not a human win-rate or browser performance measurement. The output and minute checkpoints are recorded in `tests/results/constant_speed_playtest.txt`. The results scene and balance rules also pass when loaded from the rebuilt Web pack, and rendered death/victory screenshots were checked for clipping.
+Current release check (2026-10-09): skilled pilot / seed 1337 completed the full ten-minute run at **level 39**, with **51.0 HP**, a final-wave minimum of **43.7 HP**, 49 HP of final-wave damage, and **1,071 peak living enemies**. It defeated 14,665 enemies and dealt 15,985,180 damage. Seeds 11 and 27 died at 7:07.47 / level 21 and 8:45.42 / level 31 respectively. Fewer upgrades increase the difficulty with the existing horde settings. These are bot outcomes, not a human win-rate or browser performance measurement. Minute checkpoints and outcomes are in `tests/results/xp_vortex_playtest_1337.txt`, `xp_vortex_playtest_11.txt` and `xp_vortex_playtest_27.txt`. Rendered pause, upgrade, XP-glow and large/small vortex screenshots were checked; progression UI, vortex and balance rules pass from the rebuilt Web pack.
+
+Previous release check (2026-10-07): skilled pilot / seed 1337 completed the full ten-minute run with **74.7 HP**, a final-wave minimum of **67.1 HP**, 28 HP of final-wave damage, and **826 peak living enemies**. It finished at level 78 with 15,467 kills and 17,279,190 damage dealt. The ending total includes partial damage to surviving enemies. The output and minute checkpoints are recorded in `tests/results/constant_speed_playtest.txt`.
 
 The results below are historical results for the previous 26/s release with accelerating enemies and 950 HP final enemies; they do not describe the current 100/s balance. Full traces are kept in `tests/results/horde_playtests.txt`.
 
@@ -76,6 +88,7 @@ Run focused rules and exported-pack verification:
 ```powershell
 godot --headless --path . --fixed-fps 60 --script tests/balance_rules_test.gd
 godot --headless --path . --main-pack docs/index.pck --fixed-fps 60 --script C:/R/game-3/tests/balance_rules_test.gd
+godot --headless --path . --main-pack docs/index.pck --fixed-fps 60 --script C:/R/game-3/tests/progression_ui_test.gd
 ```
 
 Focused checks cover spawning, constant speed, 100/s final-wave spawn debt, doubled final HP, survival victory/death, movement, fireballs, upgrades, skills, dash collision, explosion/vortex effects, lobby flow and results. `tests/results_test.gd` checks actual damage accounting, arena cleanup, replay, menu return and displayed stats; add `-- --capture` without `--headless` to capture both result screens. The release Web export uses the installed single-threaded template; keep every exported `docs/` file together.

@@ -92,7 +92,8 @@ func _run() -> void:
 	vortex_target.global_position = Vector3(45.0, 0.05, 0.0)
 	for frame in 240:
 		vortex_target.pull_toward(vortex_core, vortex.PULL_FORCE, 1.0 / 60.0)
-	_check(Vector2(vortex_target.position.x - vortex_core.x, vortex_target.position.z - vortex_core.z).length() <= 1.36 and vortex_target.position.y > vortex_core.y, "vortex pulls a far enemy into a lifted orbit")
+	var orbit_distance := Vector2(vortex_target.position.x - vortex_core.x, vortex_target.position.z - vortex_core.z).length()
+	_check(orbit_distance + 0.00001 >= scene.GameConsts.VORTEX_ORBIT_RADIUS_MIN and orbit_distance <= scene.GameConsts.VORTEX_ORBIT_RADIUS_MAX + 0.00001 and vortex_target.position.y >= 0.04999, "vortex pulls a far enemy into an orbit around its sides")
 	vortex_target.global_position = vortex_core + Vector3(0.5, 0.0, 0.0)
 	vortex_target.velocity = Vector3(100.0, 0.0, 0.0)
 	vortex_target.pull_toward(vortex_core, vortex.PULL_FORCE, 1.0 / 60.0)

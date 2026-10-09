@@ -1,0 +1,12 @@
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+TRACE t=60.02 physics=3602 hop=4 pos=(-8.476938, 1.085862, -26.7668) hp=100.0 level=4 kills=34 alive=0 stats={ "projectiles": 1, "bounces": 0, "radius": 1.5, "damage": 170.0, "crit": 0.05, "attack_speed": 1.12 }
+TRACE t=120.02 physics=7202 hop=4 pos=(23.40932, 1.368084, -2.124395) hp=100.0 level=6 kills=67 alive=2 stats={ "projectiles": 1, "bounces": 2, "radius": 1.5, "damage": 170.0, "crit": 0.05, "attack_speed": 1.29 }
+TRACE t=180.00 physics=10801 hop=4 pos=(-18.84604, 1.218084, -9.417948) hp=100.0 level=8 kills=114 alive=4 stats={ "projectiles": 2, "bounces": 2, "radius": 1.5, "damage": 250.0, "crit": 0.05, "attack_speed": 1.29 }
+TRACE t=240.00 physics=14401 hop=4 pos=(-36.66053, 0.572726, -39.97369) hp=100.0 level=10 kills=185 alive=8 stats={ "projectiles": 4, "bounces": 2, "radius": 1.5, "damage": 270.0, "crit": 0.05, "attack_speed": 1.29 }
+TRACE t=300.00 physics=18001 hop=4 pos=(19.60447, 0.183084, -8.519784) hp=100.0 level=12 kills=310 alive=18 stats={ "projectiles": 4, "bounces": 5, "radius": 1.5, "damage": 300.0, "crit": 0.05, "attack_speed": 1.29 }
+TRACE t=360.00 physics=21601 hop=4 pos=(12.53649, 0.954196, -16.89239) hp=100.0 level=15 kills=704 alive=73 stats={ "projectiles": 4, "bounces": 5, "radius": 1.5, "damage": 300.0, "crit": 0.05, "attack_speed": 2.06 }
+TRACE t=420.02 physics=25202 hop=4 pos=(37.2818, 0.127542, 3.838805) hp=93.2 level=20 kills=1829 alive=208 stats={ "projectiles": 5, "bounces": 5, "radius": 3.55, "damage": 300.0, "crit": 0.05, "attack_speed": 2.4 }
+TRACE t=480.02 physics=28802 hop=4 pos=(23.23853, 0.61753, -24.8676) hp=59.5 level=26 kills=4343 alive=394 stats={ "projectiles": 5, "bounces": 5, "radius": 3.85, "damage": 385.0, "crit": 0.21, "attack_speed": 2.52 }
+TRACE t=540.02 physics=32402 hop=4 pos=(-9.151867, 1.170864, 13.54377) hp=64.4 level=33 kills=8701 alive=837 stats={ "projectiles": 5, "bounces": 5, "radius": 4.15, "damage": 465.0, "crit": 0.29, "attack_speed": 2.76 }
+RESULT seed=1337 pilot=skilled victory=true finished_at=600.02 hp=51.0 minimum_hp=43.7 final_minimum_hp=43.7 damage=210.0 final_damage=49.0 peak_alive=1071 total_damage=15985180.0 kills=14665 level=39

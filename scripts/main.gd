@@ -82,6 +82,8 @@ var damage_tween: Tween
 var pickup_message: Label
 var pickup_message_tween: Tween
 var pause_overlay: ColorRect
+var pause_stats_label: Label
+var pause_stat_values: Dictionary = {}
 
 func _ready() -> void:
 	RunStats.last_run = {}
@@ -333,7 +335,7 @@ func _spawn_powerup(kind: String) -> void:
 	pickup.collected.connect(_on_pickup_collected)
 
 func _spawn_xp(pos: Vector3) -> void:
-	for i in randi_range(GameConsts.XP_DROPS_MIN, GameConsts.XP_DROPS_MAX):
+	for i in GameConsts.XP_DROPS_PER_ENEMY:
 		var pickup := PickupScript.new()
 		pickup.add_to_group("pickups")
 		pickup.process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -528,6 +530,7 @@ func _check_level_up() -> void:
 		level += 1
 		xp_needed = _xp_required_for_level(level)
 		_record_run_stats()
+		_update_hud()
 		_show_upgrade_choices()
 
 func _xp_required_for_level(target_level: int) -> float:
@@ -588,7 +591,7 @@ func _create_upgrade_card(offer: Dictionary, index: int) -> Button:
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	button.focus_mode = Control.FOCUS_NONE
 	button.custom_minimum_size = Vector2(285, 320)
-	button.text = "%s\n\n%s\n\n%s\n\nClick To Select" % [data.icon, data.title, description]
+	button.text = "%s\n\n%s\n\n%s\n%s\n\nClick To Select" % [data.icon, data.title, description, _upgrade_preview(offer)]
 	button.add_theme_font_size_override("font_size", 21)
 	button.add_theme_color_override("font_color", rarity.color)
 	button.add_theme_color_override("font_hover_color", Color.WHITE)
@@ -611,17 +614,32 @@ func _create_upgrade_card(offer: Dictionary, index: int) -> Button:
 	button.pressed.connect(_choose_upgrade.bind(index))
 	return button
 
+func _upgraded_stat_value(offer: Dictionary) -> float:
+	var current: float = stats[offer.kind]
+	match offer.kind:
+		"crit": return minf(GameConsts.CRIT_CHANCE_CAP, current + offer.amount / 100.0)
+		"attack_speed": return current + offer.amount / 100.0
+	return current + offer.amount
+
+func _format_stat_value(kind: String, value: float) -> String:
+	match kind:
+		"crit": return "%.0f%%" % (value * 100.0)
+		"attack_speed": return "×%.2f" % value
+		"radius": return "%.2fm" % value
+	return "%.0f" % value
+
+func _upgrade_preview(offer: Dictionary) -> String:
+	return "%s -> %s" % [_format_stat_value(offer.kind, stats[offer.kind]), _format_stat_value(offer.kind, _upgraded_stat_value(offer))]
+
 func _choose_upgrade(index: int) -> void:
 	if not upgrade_active or index >= current_offers.size():
 		return
 	var offer := current_offers[index]
-	match offer.kind:
-		"projectiles": stats.projectiles += int(offer.amount)
-		"bounces": stats.bounces += int(offer.amount)
-		"radius": stats.radius += offer.amount
-		"damage": stats.damage += offer.amount
-		"crit": stats.crit = minf(GameConsts.CRIT_CHANCE_CAP, stats.crit + offer.amount / 100.0)
-		"attack_speed": stats.attack_speed += offer.amount / 100.0
+	var next_value := _upgraded_stat_value(offer)
+	if offer.kind in ["projectiles", "bounces"]:
+		stats[offer.kind] = int(next_value)
+	else:
+		stats[offer.kind] = next_value
 	player.set_attack_speed(stats.attack_speed)
 	upgrade_active = false
 	upgrade_overlay.visible = false
@@ -679,10 +697,29 @@ func _set_pause(should_pause: bool) -> void:
 		tutorial_overlay.visible = false
 	get_tree().paused = should_pause
 	if should_pause:
+		_update_pause_stats()
 		_release_mouse_cursor()
 		call_deferred("_release_mouse_cursor")
 	else:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _update_pause_stats() -> void:
+	pause_stats_label.text = "Level %d" % level
+	var values := {
+		"Damage": "%.0f" % stats.damage,
+		"Critical Chance": "%.0f%%" % (stats.crit * 100.0),
+		"Critical Damage": "×%.1f" % GameConsts.CRIT_DAMAGE_MULTIPLIER,
+		"Attack Speed": "×%.2f" % stats.attack_speed,
+		"Attacks / Second": "%.2f" % (stats.attack_speed / GameConsts.BASE_ATTACK_INTERVAL),
+		"Projectiles": str(stats.projectiles),
+		"Ricochets": str(stats.bounces),
+		"Explosion Radius": "%.2fm" % stats.radius,
+		"Pickup Radius": "%.2fm" % collection_radius,
+		"Health": "%.0f / %.0f" % [player_health, GameConsts.PLAYER_MAX_HEALTH],
+		"Regeneration": "%.2f HP/s" % _health_regen(elapsed)
+	}
+	for stat_name in values:
+		pause_stat_values[stat_name].text = values[stat_name]
 
 func _release_mouse_cursor() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -914,13 +951,54 @@ void fragment() {
 	pause_overlay.color = Color(0.02, 0.04, 0.07, 0.88)
 	pause_overlay.visible = false
 	canvas.add_child(pause_overlay)
+	var pause_layout := HBoxContainer.new()
+	pause_layout.set_anchors_preset(Control.PRESET_CENTER)
+	pause_layout.position = Vector2(-470, -250)
+	pause_layout.custom_minimum_size = Vector2(940, 500)
+	pause_layout.add_theme_constant_override("separation", 70)
+	pause_overlay.add_child(pause_layout)
+	var build_panel := PanelContainer.new()
+	build_panel.custom_minimum_size = Vector2(450, 440)
+	var build_style := _panel_style(Color("172331"), Color("58dcff"))
+	build_style.content_margin_left = 24
+	build_style.content_margin_right = 24
+	build_style.content_margin_top = 18
+	build_style.content_margin_bottom = 18
+	build_panel.add_theme_stylebox_override("panel", build_style)
+	pause_layout.add_child(build_panel)
+	var build_box := VBoxContainer.new()
+	build_box.add_theme_constant_override("separation", 14)
+	build_panel.add_child(build_box)
+	var build_title := Label.new()
+	build_title.text = "Current Build"
+	build_title.add_theme_font_size_override("font_size", 30)
+	build_title.modulate = Color("58dcff")
+	build_box.add_child(build_title)
+	pause_stats_label = Label.new()
+	pause_stats_label.add_theme_font_size_override("font_size", 21)
+	build_box.add_child(pause_stats_label)
+	var build_grid := GridContainer.new()
+	build_grid.columns = 2
+	build_grid.add_theme_constant_override("h_separation", 30)
+	build_grid.add_theme_constant_override("v_separation", 3)
+	build_box.add_child(build_grid)
+	for stat_name in ["Damage", "Critical Chance", "Critical Damage", "Attack Speed", "Attacks / Second", "Projectiles", "Ricochets", "Explosion Radius", "Pickup Radius", "Health", "Regeneration"]:
+		var stat_title := Label.new()
+		stat_title.text = stat_name
+		stat_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		stat_title.add_theme_font_size_override("font_size", 21)
+		stat_title.modulate = Color("c3d2df")
+		build_grid.add_child(stat_title)
+		var stat_value := Label.new()
+		stat_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		stat_value.add_theme_font_size_override("font_size", 21)
+		build_grid.add_child(stat_value)
+		pause_stat_values[stat_name] = stat_value
 	var pause_box := VBoxContainer.new()
-	pause_box.set_anchors_preset(Control.PRESET_CENTER)
-	pause_box.position = Vector2(-210, -220)
 	pause_box.custom_minimum_size = Vector2(420, 440)
 	pause_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	pause_box.add_theme_constant_override("separation", 20)
-	pause_overlay.add_child(pause_box)
+	pause_layout.add_child(pause_box)
 	var pause_title := Label.new()
 	pause_title.text = "Paused"
 	pause_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

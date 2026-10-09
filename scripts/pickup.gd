@@ -3,12 +3,13 @@ extends Area3D
 signal collected(kind: String, value: float)
 
 var kind := "xp"
-var value := 20.0
+var value := preload("res://scripts/consts.gd").XP_PER_DROP
 var target: Node3D
 var collection_radius := 2.2
 var base_y := 0.0
 var age := 0.0
 var magnetized := false
+static var xp_glow_mesh: QuadMesh
 
 func setup(pickup_kind: String, pickup_value: float, player: Node3D) -> void:
 	kind = pickup_kind
@@ -43,6 +44,10 @@ func _ready() -> void:
 	mat.emission_enabled = true
 	mat.emission = color
 	mat.emission_energy_multiplier = 2.8
+	if kind == "xp":
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.albedo_color = Color("b8eaff")
+		mat.emission_energy_multiplier = 6.0
 	if kind == "star":
 		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 		_build_star_visual(mat)
@@ -53,6 +58,8 @@ func _ready() -> void:
 		sphere.height = box.size.x
 		mesh.mesh = sphere
 		mesh.material_override = mat
+		if kind == "xp":
+			mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mesh)
 	if kind == "relic":
 		_build_relic_beacon(mat)
@@ -61,8 +68,47 @@ func _ready() -> void:
 	elif kind == "magnet":
 		_build_powerup_beacon(mat, "XP Magnet\nPull Every XP Orb")
 	if kind == "xp":
+		_build_xp_glow()
 		global_position.y = 0.24
 	base_y = global_position.y
+
+func _build_xp_glow() -> void:
+	# A soft additive billboard stays visible in the Web compatibility renderer,
+	# which cannot rely on environment bloom. No per-orb dynamic lights.
+	if xp_glow_mesh == null:
+		xp_glow_mesh = _create_xp_glow_mesh()
+	var glow := MeshInstance3D.new()
+	glow.name = "XPGlow"
+	glow.mesh = xp_glow_mesh
+	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(glow)
+
+static func _create_xp_glow_mesh() -> QuadMesh:
+	var gradient := Gradient.new()
+	gradient.offsets = PackedFloat32Array([0.0, 0.22, 0.5, 1.0])
+	gradient.colors = PackedColorArray([Color(0.55, 0.85, 1.0, 0.95), Color(0.15, 0.6, 1.0, 0.75), Color(0.04, 0.3, 1.0, 0.35), Color(0.0, 0.2, 1.0, 0.0)])
+	var texture := GradientTexture2D.new()
+	texture.width = 32
+	texture.height = 32
+	texture.gradient = gradient
+	texture.fill = GradientTexture2D.FILL_RADIAL
+	texture.fill_from = Vector2(0.5, 0.5)
+	texture.fill_to = Vector2(1.0, 0.5)
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	material.emission_enabled = true
+	material.emission = Color("70caff")
+	material.emission_texture = texture
+	material.emission_energy_multiplier = 6.0
+	material.albedo_texture = texture
+	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var quad := QuadMesh.new()
+	quad.size = Vector2(2.0, 2.0)
+	quad.material = material
+	return quad
 
 func _build_relic_beacon(material: StandardMaterial3D) -> void:
 	var light := OmniLight3D.new()

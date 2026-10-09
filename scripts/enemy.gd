@@ -224,26 +224,32 @@ func freeze(duration: float) -> void:
 func pull_toward(point: Vector3, force: float, delta: float, source: Node3D = null) -> void:
 	if defeated:
 		return
-	var offset := point - global_position
+	var body_center := global_position + Vector3.UP * 0.68 * scale.y
+	var offset := point - body_center
 	var distance := offset.length()
-	if vortex_hold_timer > 0.0 or distance <= 1.36:
+	var capture_radius := EnemyConsts.VORTEX_ORBIT_RADIUS_MAX + 0.1
+	if vortex_hold_timer > 0.0 or distance <= capture_radius:
 		if vortex_hold_timer <= 0.0 or vortex_source != source:
 			vortex_source = source
-			vortex_orbit_angle = randf() * TAU
+			vortex_orbit_angle = atan2(body_center.z - point.z, body_center.x - point.x)
 			vortex_orbit_radius = randf_range(EnemyConsts.VORTEX_ORBIT_RADIUS_MIN, EnemyConsts.VORTEX_ORBIT_RADIUS_MAX)
 			vortex_orbit_speed = randf_range(EnemyConsts.VORTEX_ORBIT_SPEED_MIN, EnemyConsts.VORTEX_ORBIT_SPEED_MAX) * (-1.0 if randf() < 0.5 else 1.0)
-			vortex_orbit_height = randf_range(0.8, 2.0)
+			vortex_orbit_height = randf_range(-0.25, 0.25)
 			vortex_spin = Vector3(randf_range(-3, 3), randf_range(-3, 3), randf_range(-3, 3))
 		vortex_hold_point = point
 		vortex_hold_timer = 0.16
 		vortex_orbit_angle += vortex_orbit_speed * delta
 		global_position = point + Vector3(cos(vortex_orbit_angle) * vortex_orbit_radius, vortex_orbit_height, sin(vortex_orbit_angle) * vortex_orbit_radius)
+		global_position.y = maxf(0.05, global_position.y - 0.68 * scale.y)
 		visual.rotation += vortex_spin * delta
 		velocity = Vector3.ZERO
 		return
 	var pull_speed := clampf(distance * 1.8, 12.0, force)
-	var step := minf(pull_speed * delta, distance - 1.35)
+	# Step inside the capture boundary so floating-point rounding cannot leave
+	# an enemy stalled just outside the orbit.
+	var step := minf(pull_speed * delta, distance - EnemyConsts.VORTEX_ORBIT_RADIUS_MAX)
 	global_position += offset.normalized() * step
+	global_position.y = maxf(0.05, global_position.y)
 	velocity = offset.normalized() * pull_speed
 
 func release_vortex(source: Node3D) -> void:
