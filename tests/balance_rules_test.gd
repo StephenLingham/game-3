@@ -15,19 +15,23 @@ func _run() -> void:
 	var previous_rate := 0.0
 	for second in range(0, 601):
 		var rate: float = 1.0 / scene._enemy_spawn_interval(float(second))
-		assert(rate >= previous_rate, "Spawn pressure must increase monotonically")
+		if second <= 480:
+			assert(rate >= previous_rate, "Spawn pressure rises through wave eight")
+		else:
+			assert(rate <= previous_rate, "Wave nine eases spawn pressure toward the final rate")
 		previous_rate = rate
 	assert(1.0 / scene._enemy_spawn_interval(120.0) < 0.7, "Opening two minutes remain gentle")
 	assert(scene._health_regen(120.0) == scene.GameConsts.HEALTH_REGEN_START)
-	assert(is_equal_approx(1.0 / scene._enemy_spawn_interval(540.0), 100.0), "Final wave starts at 100 spawns per second")
-	assert(is_equal_approx(1.0 / scene._enemy_spawn_interval(599.0), 100.0), "Final wave sustains 100 spawns per second")
-	assert(scene._enemy_health_for_type(9) == 1900.0, "Final enemy health is doubled")
+	assert(is_equal_approx(1.0 / scene._enemy_spawn_interval(540.0), 20.0), "Final wave starts at 20 spawns per second")
+	assert(is_equal_approx(1.0 / scene._enemy_spawn_interval(599.0), 20.0), "Final wave sustains 20 spawns per second")
+	assert(scene._enemy_health_for_type(9) == 10000.0, "Final enemy tier has 10000 HP")
 	for time in [0.0, 120.0, 300.0, 540.0, 599.0]:
 		scene.elapsed = time
 		scene._spawn_enemy()
 		var spawned = get_nodes_in_group("enemies").back()
 		spawned.set_physics_process(false)
 		assert(is_equal_approx(spawned.move_speed, 3.2), "Enemy speed stays constant through the run")
+		assert(spawned.health == scene._enemy_health_for_type(spawned.enemy_type), "Spawned enemies receive their configured tier health")
 	scene.elapsed = 0.0
 	assert(is_equal_approx(scene._health_regen(scene.RUN_DURATION), scene.GameConsts.HEALTH_REGEN_END))
 	for i in 100:
@@ -53,7 +57,7 @@ func _run() -> void:
 	scene.elapsed = 570.0
 	scene.enemy_spawn_clock = 0.0
 	var count_before: int = scene._alive_enemy_count()
-	# Avoid an exact floating-point interval boundary (100/s gives 0.01s).
+	# Avoid an exact floating-point interval boundary (20/s gives 0.05s).
 	scene._process(0.505)
 	var expected_spawns := int(floor(0.505 / scene._enemy_spawn_interval(scene.elapsed))) + 1
 	assert(scene._alive_enemy_count() == count_before + expected_spawns, "Slow frames must repay all late-wave spawn debt")

@@ -2,7 +2,7 @@
 
 Balance settings live in `scripts/consts.gd`. A run has ten one-minute waves. Survive ten minutes to win; the boss is removed from the run. Its prototype script and constants remain dormant for future work. Remaining enemies do not need to be cleared after the timer ends.
 
-The first five waves build the character. The second half increases the horde to **100 enemies per second at the start of wave ten**, sustained for the entire final minute. Spawn rates interpolate linearly between minute boundaries; health changes by wave. Previously spawned enemies retain their original health. Every enemy type moves at a constant **3.2 units/second**, regardless of spawn time.
+The first five waves build the character. Spawn rates rise to 60 enemies per second at 8:00, then ease to **20 enemies per second at the start of wave ten**, sustained for the entire final minute. Spawn rates interpolate linearly between minute boundaries; health changes by wave. Previously spawned enemies retain their original health. Every enemy type moves at a constant **3.2 units/second**, regardless of spawn time.
 
 | Wave | Time | Spawns / second, start → end | Primary HP | Expected new enemies | New enemy speed at start |
 | --- | --- | ---: | ---: | ---: | ---: |
@@ -14,8 +14,8 @@ The first five waves build the character. The second half increases the horde to
 | 6 | 5:00–6:00 | 3.00 → 12.00 | 450 | 450 | 3.20 |
 | 7 | 6:00–7:00 | 12.00 → 30.00 | 550 | 1,260 | 3.20 |
 | 8 | 7:00–8:00 | 30.00 → 60.00 | 650 | 2,700 | 3.20 |
-| 9 | 8:00–9:00 | 60.00 → 100.00 | 800 | 4,800 | 3.20 |
-| 10 | 9:00–10:00 | 100.00 → 100.00 | 1,900 | 6,000 | 3.20 |
+| 9 | 8:00–9:00 | 60.00 → 20.00 | 800 | 2,400 | 3.20 |
+| 10 | 9:00–10:00 | 20.00 → 20.00 | 10,000 | 1,200 | 3.20 |
 
 ## Spawn geometry
 
@@ -25,11 +25,11 @@ Candidates within 18 horizontal units of the player are rejected. After 24 attem
 
 ## Difficulty calculations
 
-Enemies per wave are the area under the rate curve: `60 × (start_rate + end_rate) / 2`. The curve generates about 15,531 enemies, plus seven initial enemies: **15,538 per run**. Waves six through ten supply 15,210 of those spawns. The final minute supplies 6,000. Fractional spawn debt is retained, so slow frames still create the requested number of enemies.
+Enemies per wave are the area under the rate curve: `60 × (start_rate + end_rate) / 2`. The curve generates about 8,331 enemies, plus seven initial enemies: **8,338 per run**. Waves six through ten supply 8,010 of those spawns. The final minute supplies 1,200. Fractional spawn debt is retained, so slow frames still create the requested number of enemies.
 
 Base expected damage is `damage × projectiles hitting × attack_speed / 0.65 × (1 + crit_chance)`. Base DPS is `100 / 0.65 × 1.05 = 161.5`; at 70% accuracy it is 113 DPS, comfortably above the opening load of 40–65 HP/second. The first two minutes only spawn 100 HP red cubes.
 
-The final enemy tier has **1,900 HP**, twice its previous 950 HP. Earlier tiers retain their original health. In wave ten, 85% have 1,900 HP and 15% have 800 HP: mean health is **1,735 HP**. Incoming health is `100 × 1,735 = 173,500 HP/second` throughout the final wave. Ricochets, explosions and abilities add crowd damage; spread, travel time, walls and missed volleys reduce effective damage. Surviving the timer does not require clearing every spawn.
+The final enemy tier has **10,000 HP**, increased from 1,900 HP. Earlier tiers retain their original health. In wave ten, 85% have 10,000 HP and 15% have 800 HP: mean health is **8,620 HP**. Incoming health is `20 × 8,620 = 172,400 HP/second` throughout the final wave, close to the previous 173,500 HP/second with fewer, tougher enemies. Ricochets, explosions and abilities add crowd damage; spread, travel time, walls and missed volleys reduce effective damage. Surviving the timer does not require clearing every spawn.
 
 Enemy speed is fixed by `ENEMY_SPEED = 3.2`, including enemy setup outside the normal spawn path. There is no time or type-based speed ramp. Walking reaches 9 units/second and full bunny hopping reaches 18; the difficulty increase comes from horde density and health.
 
@@ -43,9 +43,9 @@ Total damage measures enemy health actually removed, excludes overkill and inclu
 
 Every defeated enemy drops **one blue ball worth 12 XP**. Previously enemies dropped two to four 12-XP balls. The sphere has a brighter unshaded core and a shared soft additive glow billboard, so its glow is visible with the Web compatibility renderer without adding a light for every pickup.
 
-XP magnets first spawn at **2:00** and repeat every **120 seconds**. Each magnet still pulls all XP balls currently on the map. The recorded full-run playtests below used the previous 7-second first magnet / 14-second repeat schedule; their collection and survival outcomes do not measure this reduced magnet availability.
+XP magnets first spawn at **2:00** and repeat every **120 seconds**. Each magnet still pulls all XP balls currently on the map. The historical XP/vortex playtests below used the previous 7-second first magnet / 14-second repeat schedule; their collection and survival outcomes do not measure this reduced magnet availability.
 
-The cost to advance from level `L` is `100 + 42 × (L − 1) + 10 × (L − 1)²`, increased from a quadratic coefficient of 3. Reaching level 40 from level 1 costs **225,212 XP** before relic rewards. All 15,538 scheduled enemies supply about 186,456 XP; collecting gold relics still grants 25% of the current level requirement. Integrating the spawn curve and scheduled relics gives an ideal ten-minute reward budget of **level 40**. Missed pickups, uncollected relics, surviving enemies and early death reduce actual progression; there is no level cap or forced level grant. The real winning pilot below reached level 39.
+The cost to advance from level `L` is `100 + 42 × (L − 1) + 10 × (L − 1)²`, increased from a quadratic coefficient of 3. Reaching level 40 from level 1 costs **225,212 XP** before relic rewards. All 8,338 scheduled enemies supply about 100,056 XP; collecting gold relics still grants 25% of the current level requirement. Integrating the reduced spawn curve and scheduled relics gives an ideal ten-minute reward budget of **level 34**, down from level 40 with the previous 100/s finale. Missed pickups, uncollected relics, surviving enemies and early death reduce actual progression; there is no level cap or forced level grant. The historical winning pilot below reached level 39 with the previous spawn rates.
 
 Escape pauses the timer and displays the current build to the left of the pause actions: damage, critical chance/damage, attack speed multiplier, attacks per second, projectiles, ricochets, explosion radius, pickup radius, health and regeneration. Upgrade cards show `current -> next` values in the stat's units; previews and application share the same calculation, including the 75% critical-chance cap.
 
@@ -57,11 +57,13 @@ Each contact hit deals **7 HP**, with a shared 0.45-second recovery window and a
 
 Automated pilots play the actual Godot scene at 60 physics ticks per simulated second. They move, aim with limited turn speed, fire physical projectiles, collect real pickups, select real upgrade offers and use abilities at their actual cooldowns. They never teleport, inject damage, grant XP/upgrades or skip the timer. Headless Godot cannot capture a cursor, so its harness mirrors held-fire creation at the normal attack cooldown. The casual pilot walks without jumping or dashing, but still aims and uses abilities effectively. These labels describe bot behaviour, not measured human skill levels.
 
-Current release check (2026-10-09): skilled pilot / seed 1337 completed the full ten-minute run at **level 39**, with **51.0 HP**, a final-wave minimum of **43.7 HP**, 49 HP of final-wave damage, and **1,071 peak living enemies**. It defeated 14,665 enemies and dealt 15,985,180 damage. Seeds 11 and 27 died at 7:07.47 / level 21 and 8:45.42 / level 31 respectively. Fewer upgrades increase the difficulty with the existing horde settings. These are bot outcomes, not a human win-rate or browser performance measurement. Minute checkpoints and outcomes are in `tests/results/xp_vortex_playtest_1337.txt`, `xp_vortex_playtest_11.txt` and `xp_vortex_playtest_27.txt`. Rendered pause, upgrade, XP-glow and large/small vortex screenshots were checked; progression UI, vortex and balance rules pass from the rebuilt Web pack.
+Current 20/s finale check (2026-10-09): focused balance checks verify the full rate curve, the sustained 20/s final minute, 10,000 HP final tier, actual spawned health and spawn debt; the progression check calculates a level-34 ideal reward budget. A real skilled pilot / seed 1337 died at **7:03.67**, level 19, with 1,535 kills and 618 peak living enemies. This run used the two-minute magnet schedule and ended before the changed final waves, so it cannot validate their survivability. The trace is recorded in `tests/results/tough_finale_playtest_1337.txt`.
+
+Historical XP/vortex release check (2026-10-09, before the magnet and final-wave changes): skilled pilot / seed 1337 completed the full ten-minute run at **level 39**, with **51.0 HP**, a final-wave minimum of **43.7 HP**, 49 HP of final-wave damage, and **1,071 peak living enemies**. It defeated 14,665 enemies and dealt 15,985,180 damage. Seeds 11 and 27 died at 7:07.47 / level 21 and 8:45.42 / level 31 respectively. Fewer upgrades increase the difficulty with the existing horde settings. These are bot outcomes, not a human win-rate or browser performance measurement. Minute checkpoints and outcomes are in `tests/results/xp_vortex_playtest_1337.txt`, `xp_vortex_playtest_11.txt` and `xp_vortex_playtest_27.txt`. Rendered pause, upgrade, XP-glow and large/small vortex screenshots were checked; progression UI, vortex and balance rules pass from the rebuilt Web pack.
 
 Previous release check (2026-10-07): skilled pilot / seed 1337 completed the full ten-minute run with **74.7 HP**, a final-wave minimum of **67.1 HP**, 28 HP of final-wave damage, and **826 peak living enemies**. It finished at level 78 with 15,467 kills and 17,279,190 damage dealt. The ending total includes partial damage to surviving enemies. The output and minute checkpoints are recorded in `tests/results/constant_speed_playtest.txt`.
 
-The results below are historical results for the previous 26/s release with accelerating enemies and 950 HP final enemies; they do not describe the current 100/s balance. Full traces are kept in `tests/results/horde_playtests.txt`.
+The results below are historical results for the previous 26/s release with accelerating enemies and 950 HP final enemies; they do not describe the current 20/s, 10,000-HP finale. Full traces are kept in `tests/results/horde_playtests.txt`.
 
 | Pilot / seed | Outcome | Final-wave minimum HP | Final-wave damage | Peak alive |
 | --- | --- | ---: | ---: | ---: |
@@ -93,7 +95,7 @@ godot --headless --path . --main-pack docs/index.pck --fixed-fps 60 --script C:/
 godot --headless --path . --main-pack docs/index.pck --fixed-fps 60 --script C:/R/game-3/tests/progression_ui_test.gd
 ```
 
-Focused checks cover spawning, constant speed, 100/s final-wave spawn debt, doubled final HP, survival victory/death, movement, fireballs, upgrades, skills, dash collision, explosion/vortex effects, lobby flow and results. `tests/results_test.gd` checks actual damage accounting, arena cleanup, replay, menu return and displayed stats; add `-- --capture` without `--headless` to capture both result screens. The release Web export uses the installed single-threaded template; keep every exported `docs/` file together.
+Focused checks cover spawning, constant speed, 20/s final-wave spawn debt, 10,000 HP final tier, survival victory/death, movement, fireballs, upgrades, skills, dash collision, explosion/vortex effects, lobby flow and results. `tests/results_test.gd` checks actual damage accounting, arena cleanup, replay, menu return and displayed stats; add `-- --capture` without `--headless` to capture both result screens. The release Web export uses the installed single-threaded template; keep every exported `docs/` file together.
 
 ## Adjustment guide
 

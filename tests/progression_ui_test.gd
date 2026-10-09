@@ -105,5 +105,5 @@ func _check_run_xp_budget(scene: Node) -> void:
 		while budget_xp >= scene._xp_required_for_level(budget_level):
 			budget_xp -= scene._xp_required_for_level(budget_level)
 			budget_level += 1
-	assert(budget_level == 40, "Ten-minute reward budget should reach roughly level 40")
+	assert(budget_level == 34, "Reduced final spawn rate yields a level-34 ten-minute reward budget")
 	print("TEN-MINUTE XP BUDGET: level %d with all drops and scheduled relics" % budget_level)
