@@ -23,7 +23,7 @@ func _run() -> void:
 	var level_three_xp: float = scene._xp_required_for_level(3)
 	_check(level_two_xp > level_one_xp and level_three_xp > level_two_xp, "each level requires more XP than the previous level")
 	_check(level_three_xp - level_two_xp > level_two_xp - level_one_xp, "the XP requirement grows progressively between levels")
-	_check(is_equal_approx(scene.STAR_SPAWN_INTERVAL, 120.0) and is_equal_approx(scene.MAGNET_SPAWN_INTERVAL, 14.0), "star power spawns every two minutes without slowing magnet spawns")
+	_check(is_equal_approx(scene.STAR_SPAWN_INTERVAL, 120.0) and is_equal_approx(scene.MAGNET_SPAWN_INTERVAL, 120.0) and is_equal_approx(scene.magnet_spawn_clock, 120.0 - scene.elapsed), "star power and magnets spawn every two minutes, with the first magnet at two minutes")
 	var stars_before := 0
 	for pickup in get_nodes_in_group("pickups"):
 		if pickup.kind == "star":

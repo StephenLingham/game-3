@@ -43,6 +43,8 @@ Total damage measures enemy health actually removed, excludes overkill and inclu
 
 Every defeated enemy drops **one blue ball worth 12 XP**. Previously enemies dropped two to four 12-XP balls. The sphere has a brighter unshaded core and a shared soft additive glow billboard, so its glow is visible with the Web compatibility renderer without adding a light for every pickup.
 
+XP magnets first spawn at **2:00** and repeat every **120 seconds**. Each magnet still pulls all XP balls currently on the map. The recorded full-run playtests below used the previous 7-second first magnet / 14-second repeat schedule; their collection and survival outcomes do not measure this reduced magnet availability.
+
 The cost to advance from level `L` is `100 + 42 × (L − 1) + 10 × (L − 1)²`, increased from a quadratic coefficient of 3. Reaching level 40 from level 1 costs **225,212 XP** before relic rewards. All 15,538 scheduled enemies supply about 186,456 XP; collecting gold relics still grants 25% of the current level requirement. Integrating the spawn curve and scheduled relics gives an ideal ten-minute reward budget of **level 40**. Missed pickups, uncollected relics, surviving enemies and early death reduce actual progression; there is no level cap or forced level grant. The real winning pilot below reached level 39.
 
 Escape pauses the timer and displays the current build to the left of the pause actions: damage, critical chance/damage, attack speed multiplier, attacks per second, projectiles, ricochets, explosion radius, pickup radius, health and regeneration. Upgrade cards show `current -> next` values in the stat's units; previews and application share the same calculation, including the 75% critical-chance cap.
