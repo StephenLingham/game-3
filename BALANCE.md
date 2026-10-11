@@ -111,6 +111,8 @@ godot --headless --path . --main-pack docs/index.pck --fixed-fps 60 --script C:/
 
 Focused checks cover spawning, constant speed, population targets, timed and final swarms, 10,000 HP final tier, bounded spawn credit, survival victory/death, movement, fireballs, upgrades, skills, dash collision, explosion/vortex effects, lobby flow and results. `tests/results_test.gd` checks actual damage accounting, arena cleanup, replay, menu return and displayed stats; add `-- --capture` without `--headless` to capture both result screens. The release Web export uses the installed single-threaded template; keep every exported `docs/` file together.
 
+`./tools/export_web.ps1` runs the installed Godot release export and adds a content-hash version to the pack URL, preventing browsers from loading a cached pack after deployment. After running the direct export command from `AGENTS.md`, use `./tools/export_web.ps1 -StampOnly` to apply the same loader update. All exported files stay together under `docs/`.
+
 ## Adjustment guide
 
 - `ENEMY_POPULATION_TARGETS` controls crowd size; `ENEMY_SPAWN_RATES` controls maximum replenishment income. Tune them together.

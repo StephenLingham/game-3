@@ -200,6 +200,7 @@ const engine = new Engine(GODOT_CONFIG);
 	} else {
 		setStatusMode('progress');
 		engine.startGame({
+			'mainPack': 'index.pck?v=291bbcffcf0a010d',
 			'onProgress': function (current, total) {
 				if (current > 0 && total > 0) {
 					statusProgress.value = current;
