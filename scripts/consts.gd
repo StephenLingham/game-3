@@ -3,15 +3,28 @@ extends RefCounted
 # Game design settings. Distances in world units, times in seconds.
 const ARENA_HALF := 48.0
 const RUN_DURATION := 600.0
-# Spawn rates at each minute boundary. Interpolate rates, not intervals.
-# First five waves build the character; waves six onward flood the perimeter.
+# Maximum spawn-credit income at each minute boundary, when the crowd is thin.
+# The director slows replenishment as the living population approaches its target.
 const ENEMY_SPAWN_RATES := [0.4, 0.5, 0.65, 1.0, 1.5, 3.0, 12.0, 30.0, 60.0, 20.0, 20.0]
+const ENEMY_POPULATION_TARGETS := [12, 18, 26, 40, 60, 90, 130, 180, 230, 280, 320]
+const ENEMY_POPULATION_CAP := 400
+const ENEMY_SPAWN_TICK := 0.25
+const ENEMY_SPAWN_MAX_TICKS := 8
+const ENEMY_SPAWN_MAX_PER_FRAME := 32
+const ENEMY_SPAWN_CREDIT_CAP := 32.0
+const ENEMY_REFILL_MIN_FACTOR := 0.15
+const ENEMY_SWARM_TIMES := [150.0, 300.0, 450.0]
+const ENEMY_SWARM_DURATION := 30.0
+const ENEMY_SWARM_TARGET_MULTIPLIER := 1.5
+const ENEMY_SWARM_RATE_MULTIPLIER := 2.0
+const ENEMY_FINAL_SWARM_TIME := 540.0
 const INITIAL_ENEMY_COUNT := 7
 const ENEMY_HEALTH := [100.0, 100.0, 180.0, 260.0, 350.0, 450.0, 550.0, 650.0, 800.0, 10000.0]
 const ENEMY_PREVIOUS_TYPE_CHANCE := 0.15
 const ENEMY_NEXT_TYPE_CHANCE := 0.10
 const ENEMY_SPEED := 3.2
 const ENEMY_SPAWN_DISTANCE_MIN := 18.0
+const ENEMY_SPAWN_DISTANCE_MAX := 28.0
 # Keep even the largest enemy inside the walls (inner face at 47.5).
 const ENEMY_SPAWN_EDGE := ARENA_HALF - 2.0
 const ENEMY_CONTACT_DAMAGE := 7.0

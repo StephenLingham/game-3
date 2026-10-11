@@ -45,6 +45,7 @@ var stats := {
 	"attack_speed": GameConsts.BASE_ATTACK_SPEED
 }
 var enemy_spawn_clock := 0.0
+var enemy_spawn_credits := 0.0
 var relic_spawn_clock := GameConsts.RELIC_FIRST_SPAWN_TIME
 var magnet_spawn_clock := GameConsts.MAGNET_FIRST_SPAWN_TIME
 var star_spawn_clock := STAR_SPAWN_INTERVAL
@@ -109,16 +110,12 @@ func _process(delta: float) -> void:
 	if elapsed >= RUN_DURATION:
 		_win_run()
 		return
-	enemy_spawn_clock -= delta
+	_update_enemy_spawning(delta)
 	relic_spawn_clock -= delta
 	magnet_spawn_clock -= delta
 	star_spawn_clock -= delta
 	for i in skill_cooldowns.size():
 		skill_cooldowns[i] = maxf(0.0, skill_cooldowns[i] - delta)
-	var spawn_interval := _enemy_spawn_interval(elapsed)
-	while enemy_spawn_clock <= 0.0:
-		_spawn_enemy()
-		enemy_spawn_clock += spawn_interval
 	if relic_spawn_clock <= 0.0:
 		_spawn_relic()
 		relic_spawn_clock = GameConsts.RELIC_SPAWN_INTERVAL
@@ -270,24 +267,72 @@ func _spawn_enemy() -> void:
 func _enemy_spawn_position() -> Vector3:
 	var edge := GameConsts.ENEMY_SPAWN_EDGE
 	var player_pos := Vector2(player.global_position.x, player.global_position.z)
-	for attempt in 24:
-		var along := randf_range(-edge, edge)
-		var candidate: Vector2
-		match randi_range(0, 3):
-			0: candidate = Vector2(-edge, along)
-			1: candidate = Vector2(edge, along)
-			2: candidate = Vector2(along, -edge)
-			3: candidate = Vector2(along, edge)
-		if candidate.distance_to(player_pos) >= GameConsts.ENEMY_SPAWN_DISTANCE_MIN:
+	for attempt in 32:
+		var angle := randf() * TAU
+		# Sample the annulus uniformly by area, then reject positions outside walls.
+		var radius := sqrt(randf_range(pow(GameConsts.ENEMY_SPAWN_DISTANCE_MIN, 2.0), pow(GameConsts.ENEMY_SPAWN_DISTANCE_MAX, 2.0)))
+		var candidate := player_pos + Vector2(cos(angle), sin(angle)) * radius
+		if absf(candidate.x) <= edge and absf(candidate.y) <= edge:
 			return Vector3(candidate.x, 0.05, candidate.y)
-	# Bounded fallback stays on the perimeter and safely opposite the player.
-	return Vector3(-edge if player_pos.x >= 0.0 else edge, 0.05, -edge if player_pos.y >= 0.0 else edge)
+	# Facing the centre provides a valid, nearby fallback even in arena corners.
+	var inward := -player_pos.normalized() if player_pos.length_squared() > 0.01 else Vector2.RIGHT
+	var fallback := player_pos + inward * GameConsts.ENEMY_SPAWN_DISTANCE_MIN
+	return Vector3(fallback.x, 0.05, fallback.y)
 
-func _enemy_spawn_interval(at_time: float) -> float:
-	var rates: Array = GameConsts.ENEMY_SPAWN_RATES
-	var phase := clampf(at_time / RUN_DURATION, 0.0, 1.0) * float(rates.size() - 1)
-	var lower := mini(int(phase), rates.size() - 2)
-	return 1.0 / lerpf(rates[lower], rates[lower + 1], phase - float(lower))
+func _spawn_curve_value(values: Array, at_time: float) -> float:
+	var phase := clampf(at_time / RUN_DURATION, 0.0, 1.0) * float(values.size() - 1)
+	var lower := mini(int(phase), values.size() - 2)
+	return lerpf(values[lower], values[lower + 1], phase - float(lower))
+
+func _is_enemy_swarm(at_time: float) -> bool:
+	if at_time >= GameConsts.ENEMY_FINAL_SWARM_TIME:
+		return true
+	for start in GameConsts.ENEMY_SWARM_TIMES:
+		if at_time >= start and at_time < start + GameConsts.ENEMY_SWARM_DURATION:
+			return true
+	return false
+
+func _enemy_population_target(at_time: float) -> int:
+	if at_time >= GameConsts.ENEMY_FINAL_SWARM_TIME:
+		return GameConsts.ENEMY_POPULATION_CAP
+	var target := _spawn_curve_value(GameConsts.ENEMY_POPULATION_TARGETS, at_time)
+	if _is_enemy_swarm(at_time):
+		target *= GameConsts.ENEMY_SWARM_TARGET_MULTIPLIER
+	return mini(ceili(target), GameConsts.ENEMY_POPULATION_CAP)
+
+func _enemy_max_spawn_rate(at_time: float) -> float:
+	var rate := _spawn_curve_value(GameConsts.ENEMY_SPAWN_RATES, at_time)
+	return rate * GameConsts.ENEMY_SWARM_RATE_MULTIPLIER if _is_enemy_swarm(at_time) else rate
+
+func _enemy_credit_rate(at_time: float, alive: int) -> float:
+	var target := _enemy_population_target(at_time)
+	if alive >= target:
+		return 0.0
+	var deficit := float(target - alive) / float(target)
+	return _enemy_max_spawn_rate(at_time) * clampf(deficit * 2.0, GameConsts.ENEMY_REFILL_MIN_FACTOR, 1.0)
+
+func _update_enemy_spawning(delta: float) -> void:
+	# Keep ordinary slow-frame credit, but bound recovery work after a long stall.
+	enemy_spawn_clock += minf(delta, GameConsts.ENEMY_SPAWN_TICK * GameConsts.ENEMY_SPAWN_MAX_TICKS)
+	var alive := _alive_enemy_count()
+	var frame_budget := GameConsts.ENEMY_SPAWN_MAX_PER_FRAME
+	while enemy_spawn_clock >= GameConsts.ENEMY_SPAWN_TICK:
+		var tick_time := elapsed - enemy_spawn_clock + GameConsts.ENEMY_SPAWN_TICK
+		enemy_spawn_clock -= GameConsts.ENEMY_SPAWN_TICK
+		var deficit := _enemy_population_target(tick_time) - alive
+		if deficit <= 0:
+			# Full crowds and ended swarms cannot bank an overdue spawn avalanche.
+			enemy_spawn_credits = 0.0
+			continue
+		enemy_spawn_credits = minf(GameConsts.ENEMY_SPAWN_CREDIT_CAP, enemy_spawn_credits + _enemy_credit_rate(tick_time, alive) * GameConsts.ENEMY_SPAWN_TICK)
+		var count := mini(mini(floori(enemy_spawn_credits), deficit), frame_budget)
+		for i in count:
+			_spawn_enemy()
+		alive += count
+		frame_budget -= count
+		enemy_spawn_credits -= float(count)
+		if alive >= _enemy_population_target(tick_time):
+			enemy_spawn_credits = 0.0
 
 func _health_regen(at_time: float) -> float:
 	var ramp := clampf((at_time - GameConsts.HEALTH_REGEN_RAMP_START) / (RUN_DURATION - GameConsts.HEALTH_REGEN_RAMP_START), 0.0, 1.0)
@@ -1142,10 +1187,9 @@ func _update_hud() -> void:
 		skill_labels[i].text = "%s  READY" % skill_names[i] if remaining <= 0.0 else "%s  %02ds" % [skill_names[i], ceili(remaining)]
 	stats_label.text = "Fireball  %d × %.0f Dmg\nBounce %d   •   Blast %.1fm   •   Crit %d%%   •   Rate ×%.2f" % [stats.projectiles, stats.damage, stats.bounces, stats.radius, int(stats.crit * 100), stats.attack_speed]
 	var run_remaining := ceili(maxf(0.0, RUN_DURATION - elapsed))
-	var spawn_rate := 1.0 / _enemy_spawn_interval(elapsed)
 	var primary_type := _primary_enemy_type(elapsed)
-	wave_label.text = "Wave %d/10  •  %d HP  •  %d Alive  •  %d Defeated  •  Spawn %.1f/s  •  %02d:%02d Remaining" % [primary_type + 1, int(ENEMY_HEALTH[primary_type]), _alive_enemy_count(), kills, spawn_rate, run_remaining / 60, run_remaining % 60]
-	if primary_type == ENEMY_HEALTH.size() - 1:
-		wave_label.text += "\nFINAL WAVE — Survive the horde!"
-	elif primary_type >= ENEMY_HEALTH.size() / 2:
-		wave_label.text += "\nHORDE WAVES — Enemies pouring in from the edges"
+	wave_label.text = "Wave %d/10  •  %d HP  •  %d Alive  •  %d Defeated  •  %02d:%02d Remaining" % [primary_type + 1, int(ENEMY_HEALTH[primary_type]), _alive_enemy_count(), kills, run_remaining / 60, run_remaining % 60]
+	if elapsed >= GameConsts.ENEMY_FINAL_SWARM_TIME:
+		wave_label.text += "\nFINAL SWARM — Survive the horde!"
+	elif _is_enemy_swarm(elapsed):
+		wave_label.text += "\nSWARM — Reinforcements incoming!"

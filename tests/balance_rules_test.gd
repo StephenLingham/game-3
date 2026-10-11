@@ -11,19 +11,10 @@ func _run() -> void:
 	scene.set_process(false)
 	scene.player.set_physics_process(false)
 	for enemy in get_nodes_in_group("enemies"): enemy.set_physics_process(false)
-	# Check the mathematical curve across its entire domain, not just endpoints.
-	var previous_rate := 0.0
-	for second in range(0, 601):
-		var rate: float = 1.0 / scene._enemy_spawn_interval(float(second))
-		if second <= 480:
-			assert(rate >= previous_rate, "Spawn pressure rises through wave eight")
-		else:
-			assert(rate <= previous_rate, "Wave nine eases spawn pressure toward the final rate")
-		previous_rate = rate
-	assert(1.0 / scene._enemy_spawn_interval(120.0) < 0.7, "Opening two minutes remain gentle")
+	assert(scene._enemy_max_spawn_rate(120.0) < 0.7, "Opening two minutes remain gentle")
 	assert(scene._health_regen(120.0) == scene.GameConsts.HEALTH_REGEN_START)
-	assert(is_equal_approx(1.0 / scene._enemy_spawn_interval(540.0), 20.0), "Final wave starts at 20 spawns per second")
-	assert(is_equal_approx(1.0 / scene._enemy_spawn_interval(599.0), 20.0), "Final wave sustains 20 spawns per second")
+	assert(scene._enemy_population_target(540.0) == scene.GameConsts.ENEMY_POPULATION_CAP, "Final swarm targets the population cap")
+	assert(is_equal_approx(scene._enemy_max_spawn_rate(599.0), 40.0), "Final swarm can replace up to 40 enemies per second")
 	assert(scene._enemy_health_for_type(9) == 10000.0, "Final enemy tier has 10000 HP")
 	for time in [0.0, 120.0, 300.0, 540.0, 599.0]:
 		scene.elapsed = time
@@ -43,24 +34,23 @@ func _run() -> void:
 		scene.player.global_position = player_pos
 		for sample in 200:
 			var spawn: Vector3 = scene._enemy_spawn_position()
-			assert(is_equal_approx(absf(spawn.x), edge) or is_equal_approx(absf(spawn.z), edge), "Enemies must spawn on an arena edge")
 			assert(absf(spawn.x) <= edge and absf(spawn.z) <= edge, "Spawns must remain inside the walls")
-			assert(Vector2(spawn.x, spawn.z).distance_to(Vector2(player_pos.x, player_pos.z)) >= scene.GameConsts.ENEMY_SPAWN_DISTANCE_MIN, "No surprise contact spawns")
-			if spawn.x == -edge: sides[0] += 1
-			elif spawn.x == edge: sides[1] += 1
-			elif spawn.z == -edge: sides[2] += 1
-			else: sides[3] += 1
-	for count in sides: assert(count > 0, "All four sides must spawn enemies")
+			var distance := Vector2(spawn.x, spawn.z).distance_to(Vector2(player_pos.x, player_pos.z))
+			assert(distance >= scene.GameConsts.ENEMY_SPAWN_DISTANCE_MIN - 0.001, "No surprise contact spawns")
+			assert(distance <= scene.GameConsts.ENEMY_SPAWN_DISTANCE_MAX + 0.001, "Spawns follow the player instead of staying on distant walls")
+			if player_pos == Vector3.ZERO:
+				var quadrant := (0 if spawn.x < 0.0 else 1) + (0 if spawn.z < 0.0 else 2)
+				sides[quadrant] += 1
+	for count in sides: assert(count > 0, "Enemies approach from every direction")
 	scene.player.global_position = Vector3.ZERO
-	assert(1.0 / scene._enemy_spawn_interval(360.0) >= 7.0, "Wave six brings a substantial horde")
-	# Spawn debt must survive frames slower than the requested spawn interval.
+	assert(scene._enemy_max_spawn_rate(360.0) >= 7.0, "Wave six brings a substantial horde")
+	# Credit must survive frames slower than the director tick.
 	scene.elapsed = 570.0
 	scene.enemy_spawn_clock = 0.0
+	scene.enemy_spawn_credits = 0.0
 	var count_before: int = scene._alive_enemy_count()
-	# Avoid an exact floating-point interval boundary (20/s gives 0.05s).
 	scene._process(0.505)
-	var expected_spawns := int(floor(0.505 / scene._enemy_spawn_interval(scene.elapsed))) + 1
-	assert(scene._alive_enemy_count() == count_before + expected_spawns, "Slow frames must repay all late-wave spawn debt")
+	assert(scene._alive_enemy_count() == count_before + 20, "Two director ticks replenish a thin final crowd during a slow frame")
 	scene.player_health = scene.GameConsts.PLAYER_MAX_HEALTH
 	scene.player.hurt_cooldown = 0.0
 	scene.player.take_damage(scene.GameConsts.ENEMY_CONTACT_DAMAGE)
@@ -78,5 +68,5 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	assert(current_scene.name == "Results" and not paused, "Victory opens a separate results scene")
-	print("BALANCE RULES PASSED: opening, horde ramp, perimeter spawns, regeneration, spawn debt, survival victory, hit grace and dash uptime")
+	print("BALANCE RULES PASSED: opening, final swarm, nearby spawns, regeneration, slow-frame credit, survival victory, hit grace and dash uptime")
 	quit(0)

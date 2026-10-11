@@ -1,37 +1,47 @@
 # Balance and tuning
 
-Balance settings live in `scripts/consts.gd`. A run has ten one-minute waves. Survive ten minutes to win; the boss is removed from the run. Its prototype script and constants remain dormant for future work. Remaining enemies do not need to be cleared after the timer ends.
+Balance settings live in `scripts/consts.gd`. A run has ten one-minute waves. Survive ten minutes to win. The dormant boss prototype remains unused, and remaining enemies do not need to be cleared after the timer ends.
 
-The first five waves build the character. Spawn rates rise to 60 enemies per second at 8:00, then ease to **20 enemies per second at the start of wave ten**, sustained for the entire final minute. Spawn rates interpolate linearly between minute boundaries; health changes by wave. Previously spawned enemies retain their original health. Every enemy type moves at a constant **3.2 units/second**, regardless of spawn time.
+Spawning uses a MegaBonk-inspired population director. Time sets a target living population and maximum spawn-credit income. A thin crowd earns credits quickly; replenishment slows as the crowd fills and stops at the target. Killing enemies frees slots, so builds that clear quickly encounter more enemies and can earn more XP. Enemy health changes by wave; previously spawned enemies retain their original health. Every enemy type moves at a constant **3.2 units/second**.
 
-| Wave | Time | Spawns / second, start → end | Primary HP | Expected new enemies | New enemy speed at start |
-| --- | --- | ---: | ---: | ---: | ---: |
-| 1 | 0:00–1:00 | 0.40 → 0.50 | 100 | 27 | 3.20 |
-| 2 | 1:00–2:00 | 0.50 → 0.65 | 100 | 34.5 | 3.20 |
-| 3 | 2:00–3:00 | 0.65 → 1.00 | 180 | 49.5 | 3.20 |
-| 4 | 3:00–4:00 | 1.00 → 1.50 | 260 | 75 | 3.20 |
-| 5 | 4:00–5:00 | 1.50 → 3.00 | 350 | 135 | 3.20 |
-| 6 | 5:00–6:00 | 3.00 → 12.00 | 450 | 450 | 3.20 |
-| 7 | 6:00–7:00 | 12.00 → 30.00 | 550 | 1,260 | 3.20 |
-| 8 | 7:00–8:00 | 30.00 → 60.00 | 650 | 2,700 | 3.20 |
-| 9 | 8:00–9:00 | 60.00 → 20.00 | 800 | 2,400 | 3.20 |
-| 10 | 9:00–10:00 | 20.00 → 20.00 | 10,000 | 1,200 | 3.20 |
+| Wave | Time | Normal population target, start → end | Maximum credits / second, start → end | Primary HP |
+| --- | --- | ---: | ---: | ---: |
+| 1 | 0:00–1:00 | 12 → 18 | 0.40 → 0.50 | 100 |
+| 2 | 1:00–2:00 | 18 → 26 | 0.50 → 0.65 | 100 |
+| 3 | 2:00–3:00 | 26 → 40 | 0.65 → 1.00 | 180 |
+| 4 | 3:00–4:00 | 40 → 60 | 1.00 → 1.50 | 260 |
+| 5 | 4:00–5:00 | 60 → 90 | 1.50 → 3.00 | 350 |
+| 6 | 5:00–6:00 | 90 → 130 | 3.00 → 12.00 | 450 |
+| 7 | 6:00–7:00 | 130 → 180 | 12.00 → 30.00 | 550 |
+| 8 | 7:00–8:00 | 180 → 230 | 30.00 → 60.00 | 650 |
+| 9 | 8:00–9:00 | 230 → 280 | 60.00 → 20.00 | 800 |
+| 10 | 9:00–10:00 | 400 → 400 (final swarm) | 40.00 → 40.00 | 10,000 |
+
+Timed swarms run at **2:30–3:00, 5:00–5:30 and 7:30–8:00**. They multiply the population target by 1.5 and maximum credit income by 2. The final minute sustains a **400-enemy target** with up to **40 credits/second**. Targets and base income interpolate between minute boundaries. The HUD announces swarms and shows the actual living count. When a swarm ends, its surviving enemies remain and replenishment waits until the crowd falls below the normal target.
+
+## Research and adaptation
+
+The [Bonk Tuner author's documentation](https://www.nexusmods.com/megabonk/mods/151) describes separate enemy-target, spawn-interval and credit-income controls. Its [patch source](https://github.com/ZeusesNeckMeat/BonkTuner/blob/main/Patches.cs) directly patches MegaBonk's `StageSummoner.GetNumTargetEnemies`, `StageSummoner.GetSummonInterval` and summoner credit income. The [modifier service](https://github.com/ZeusesNeckMeat/BonkTuner/blob/main/Services/EnemyModifierService.cs) confirms those controls. MegaBonk's [developer patch notes](https://steamcommunity.com/app/3405340/allnews/) describe a distinct final swarm and changes intended to prevent excessively long runs.
+
+These primary sources establish the target/interval/credit structure and final-swarm concept, but do not publish the complete original director formulas. Population-deficit feedback, unit cost per enemy, numerical curves, swarm timings, distances and the 400-enemy limit here are an original adaptation for this arena and ten-minute objective. No MegaBonk or mod source code or assets are incorporated.
 
 ## Spawn geometry
 
-All enemies, including the initial seven, spawn on one of four perimeter lines: `x = ±46` or `z = ±46`, with the other coordinate uniformly sampled between −46 and +46. The walls' inner faces are at ±47.5; the largest enemy's half-width is about 0.89, leaving clearance. There are no player-centred spawn circles or central spawn points.
+All enemies, including the initial seven, spawn in an annulus **18–28 horizontal units from the player's current position**, uniformly sampled by area. This keeps reinforcements near the action as the player travels. Candidates outside `x/z = ±46` are rejected, leaving clearance from the walls' inner faces at ±47.5 for the largest enemy's roughly 0.89 half-width.
 
-Candidates within 18 horizontal units of the player are rejected. After 24 attempts, the fallback uses the opposite corner, still on the perimeter. The rules test checks 1,400 samples with the player at the centre, each side and opposite corners, including wall clearance, minimum distance and coverage of all four sides.
+After 32 failed attempts, the fallback goes 18 units toward the arena centre. The rules test checks 1,400 samples with the player at the centre, each side and opposite corners, including wall clearance, minimum and maximum distance, and approach directions.
 
 ## Difficulty calculations
 
-Enemies per wave are the area under the rate curve: `60 × (start_rate + end_rate) / 2`. The curve generates about 8,331 enemies, plus seven initial enemies: **8,338 per run**. Waves six through ten supply 8,010 of those spawns. The final minute supplies 1,200. Fractional spawn debt is retained, so slow frames still create the requested number of enemies.
+Every 0.25 seconds, the director counts living enemies and computes `deficit = (target − alive) / target`. Below the target, credit income is `maximum_rate × clamp(2 × deficit, 0.15, 1)`. Each enemy costs one credit. The director spends whole credits without exceeding the target and retains the fractional remainder. At or above the target, income and stored credit become zero. Defeated enemies release their slots immediately, including nodes awaiting deletion. No build stats are inspected and no health/speed adjustment is applied.
 
-Base expected damage is `damage × projectiles hitting × attack_speed / 0.65 × (1 + crit_chance)`. Base DPS is `100 / 0.65 × 1.05 = 161.5`; at 70% accuracy it is 113 DPS, comfortably above the opening load of 40–65 HP/second. The first two minutes only spawn 100 HP red cubes.
+There is no fixed number of enemies per wave: totals depend on clearing speed. Integrating maximum income gives an upper bound of roughly **11,298 enemies including the initial seven**. Actual totals are lower as population feedback slows or stops spawning. Ordinary slow frames retain fractional credit; recovery after long stalls is limited to eight ticks, 32 stored credits and 32 new enemies per frame. This replaces unlimited spawn debt to protect the Web build from an overdue spawn avalanche. The director's living population never exceeds 400.
 
-The final enemy tier has **10,000 HP**, increased from 1,900 HP. Earlier tiers retain their original health. In wave ten, 85% have 10,000 HP and 15% have 800 HP: mean health is **8,620 HP**. Incoming health is `20 × 8,620 = 172,400 HP/second` throughout the final wave, close to the previous 173,500 HP/second with fewer, tougher enemies. Ricochets, explosions and abilities add crowd damage; spread, travel time, walls and missed volleys reduce effective damage. Surviving the timer does not require clearing every spawn.
+Base expected damage is `damage × projectiles hitting × attack_speed / 0.65 × (1 + crit_chance)`. Base DPS is `100 / 0.65 × 1.05 = 161.5`; at 70% accuracy it is 113 DPS, above the opening maximum load of 40–65 HP/second. The first two minutes spawn only 100 HP red cubes.
 
-Enemy speed is fixed by `ENEMY_SPEED = 3.2`, including enemy setup outside the normal spawn path. There is no time or type-based speed ramp. Walking reaches 9 units/second and full bunny hopping reaches 18; the difficulty increase comes from horde density and health.
+The final tier has **10,000 HP**. In wave ten, 85% have 10,000 HP and 15% have 800 HP: mean health is **8,620 HP**. Maximum incoming health for an empty final crowd is `40 × 8,620 = 344,800 HP/second`; income slows as the crowd fills and stops at 400 living enemies. Ricochets, explosions and abilities add crowd damage; spread, travel time, walls and missed volleys reduce effective damage. Surviving the timer does not require clearing every spawn.
+
+Walking reaches 9 units/second and full bunny hopping reaches 18. Enemy speed remains `ENEMY_SPEED = 3.2`; increased pressure comes from population targets, swarm surges and health.
 
 ## Run results
 
@@ -45,7 +55,7 @@ Every defeated enemy drops **one blue ball worth 12 XP**. Previously enemies dro
 
 XP magnets first spawn at **2:00** and repeat every **120 seconds**. Each magnet still pulls all XP balls currently on the map. The historical XP/vortex playtests below used the previous 7-second first magnet / 14-second repeat schedule; their collection and survival outcomes do not measure this reduced magnet availability.
 
-The cost to advance from level `L` is `100 + 42 × (L − 1) + 10 × (L − 1)²`, increased from a quadratic coefficient of 3. Reaching level 40 from level 1 costs **225,212 XP** before relic rewards. All 8,338 scheduled enemies supply about 100,056 XP; collecting gold relics still grants 25% of the current level requirement. Integrating the reduced spawn curve and scheduled relics gives an ideal ten-minute reward budget of **level 34**, down from level 40 with the previous 100/s finale. Missed pickups, uncollected relics, surviving enemies and early death reduce actual progression; there is no level cap or forced level grant. The historical winning pilot below reached level 39 with the previous spawn rates.
+The cost to advance from level `L` is `100 + 42 × (L − 1) + 10 × (L − 1)²`. Reaching level 40 from level 1 costs **225,212 XP** before relic rewards. Maximum-credit spawning supplies a bound of about 135,575 XP; collecting gold relics grants 25% of the current level requirement. Integrating maximum income and scheduled relics gives an upper-bound ten-minute reward budget of **level 37**. Population feedback, missed pickups, uncollected relics, surviving enemies and early death reduce actual progression; there is no level cap or forced level grant. The historical winning pilot below reached level 39 with the previous spawn system.
 
 Escape pauses the timer and displays the current build to the left of the pause actions: damage, critical chance/damage, attack speed multiplier, attacks per second, projectiles, ricochets, explosion radius, pickup radius, health and regeneration. Upgrade cards show `current -> next` values in the stat's units; previews and application share the same calculation, including the 75% critical-chance cap.
 
@@ -55,9 +65,11 @@ Each contact hit deals **7 HP**, with a shared 0.45-second recovery window and a
 
 ## Full-run playtests
 
+Population-director check (2026-10-11): skilled pilot / seed 1337 died at **7:37.53**, level 22, with 2,162 kills, 1,102,610 damage dealt and 298 peak living enemies. It had full health at 4:00. The trace is in `tests/results/megabonk_spawning_playtest_1337.txt`. This single run measures actual earned progression and the first three swarm entries; it does not establish final-minute survivability or a human win rate. Focused checks independently exercise final replenishment, the 400-enemy cap, crowd saturation, kill-driven refill, swarm endings, pause, spawn distances and long-frame recovery.
+
 Automated pilots play the actual Godot scene at 60 physics ticks per simulated second. They move, aim with limited turn speed, fire physical projectiles, collect real pickups, select real upgrade offers and use abilities at their actual cooldowns. They never teleport, inject damage, grant XP/upgrades or skip the timer. Headless Godot cannot capture a cursor, so its harness mirrors held-fire creation at the normal attack cooldown. The casual pilot walks without jumping or dashing, but still aims and uses abilities effectively. These labels describe bot behaviour, not measured human skill levels.
 
-Current 20/s finale check (2026-10-09): focused balance checks verify the full rate curve, the sustained 20/s final minute, 10,000 HP final tier, actual spawned health and spawn debt; the progression check calculates a level-34 ideal reward budget. A real skilled pilot / seed 1337 died at **7:03.67**, level 19, with 1,535 kills and 618 peak living enemies. This run used the two-minute magnet schedule and ended before the changed final waves, so it cannot validate their survivability. The trace is recorded in `tests/results/tough_finale_playtest_1337.txt`.
+Historical 20/s finale check (2026-10-09, before the population director): focused balance checks verify the full rate curve, the sustained 20/s final minute, 10,000 HP final tier, actual spawned health and spawn debt; the progression check calculates a level-34 ideal reward budget. A real skilled pilot / seed 1337 died at **7:03.67**, level 19, with 1,535 kills and 618 peak living enemies. This run used the two-minute magnet schedule and ended before the changed final waves, so it cannot validate their survivability. The trace is recorded in `tests/results/tough_finale_playtest_1337.txt`.
 
 Historical XP/vortex release check (2026-10-09, before the magnet and final-wave changes): skilled pilot / seed 1337 completed the full ten-minute run at **level 39**, with **51.0 HP**, a final-wave minimum of **43.7 HP**, 49 HP of final-wave damage, and **1,071 peak living enemies**. It defeated 14,665 enemies and dealt 15,985,180 damage. Seeds 11 and 27 died at 7:07.47 / level 21 and 8:45.42 / level 31 respectively. Fewer upgrades increase the difficulty with the existing horde settings. These are bot outcomes, not a human win-rate or browser performance measurement. Minute checkpoints and outcomes are in `tests/results/xp_vortex_playtest_1337.txt`, `xp_vortex_playtest_11.txt` and `xp_vortex_playtest_27.txt`. Rendered pause, upgrade, XP-glow and large/small vortex screenshots were checked; progression UI, vortex and balance rules pass from the rebuilt Web pack.
 
@@ -91,17 +103,21 @@ Run focused rules and exported-pack verification:
 
 ```powershell
 godot --headless --path . --fixed-fps 60 --script tests/balance_rules_test.gd
+godot --headless --path . --fixed-fps 60 --script tests/spawn_director_test.gd
 godot --headless --path . --main-pack docs/index.pck --fixed-fps 60 --script C:/R/game-3/tests/balance_rules_test.gd
+godot --headless --path . --main-pack docs/index.pck --fixed-fps 60 --script C:/R/game-3/tests/spawn_director_test.gd
 godot --headless --path . --main-pack docs/index.pck --fixed-fps 60 --script C:/R/game-3/tests/progression_ui_test.gd
 ```
 
-Focused checks cover spawning, constant speed, 20/s final-wave spawn debt, 10,000 HP final tier, survival victory/death, movement, fireballs, upgrades, skills, dash collision, explosion/vortex effects, lobby flow and results. `tests/results_test.gd` checks actual damage accounting, arena cleanup, replay, menu return and displayed stats; add `-- --capture` without `--headless` to capture both result screens. The release Web export uses the installed single-threaded template; keep every exported `docs/` file together.
+Focused checks cover spawning, constant speed, population targets, timed and final swarms, 10,000 HP final tier, bounded spawn credit, survival victory/death, movement, fireballs, upgrades, skills, dash collision, explosion/vortex effects, lobby flow and results. `tests/results_test.gd` checks actual damage accounting, arena cleanup, replay, menu return and displayed stats; add `-- --capture` without `--headless` to capture both result screens. The release Web export uses the installed single-threaded template; keep every exported `docs/` file together.
 
 ## Adjustment guide
 
-- Change the first six `ENEMY_SPAWN_RATES` to tune the opening and the transition after wave five; change the last five for horde size.
-- Prefer tuning late HP and contact damage over removing enemies when the horde is too harsh. Keep ten health tiers.
+- `ENEMY_POPULATION_TARGETS` controls crowd size; `ENEMY_SPAWN_RATES` controls maximum replenishment income. Tune them together.
+- `ENEMY_SWARM_TIMES`, `ENEMY_SWARM_DURATION` and the swarm multipliers control pressure surges. `ENEMY_FINAL_SWARM_TIME` begins the sustained final crowd.
+- `ENEMY_POPULATION_CAP`, credit cap and per-frame budget bound Web workload. Do not restore unlimited catch-up spawning.
+- Keep ten health tiers. Late HP and contact damage affect survival separately from crowd size.
 - `ENEMY_SPEED` controls the constant movement speed for every wave and enemy tier.
 - `HEALTH_REGEN_END`, `PLAYER_HIT_GRACE` and `DASH_COOLDOWN` control the margin for mistakes.
 - XP, drops, upgrade amounts and rarity weights affect crowd-clearing power and require complete reruns after changes.
-- Keep spawn-rate values positive. Keep spawns on the perimeter and at least 18 units from the player.
+- Keep spawn-rate values positive. Keep spawns inside wall clearance and 18–28 units from the player.

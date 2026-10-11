@@ -91,19 +91,19 @@ func _run() -> void:
 	quit(0)
 
 func _check_run_xp_budget(scene: Node) -> void:
-	# An independent reward budget, not a survival or collection guarantee:
-	# all scheduled enemies defeated, all XP and scheduled relics collected.
+	# A maximum-credit reward bound, not a fixed schedule or collection guarantee:
+	# the population stays empty, all XP and scheduled relics are collected.
 	var budget_level := 1
 	var budget_xp: float = scene.GameConsts.INITIAL_ENEMY_COUNT * scene.GameConsts.XP_PER_DROP
 	budget_xp += scene.GameConsts.INITIAL_RELIC_COUNT * scene.GameConsts.XP_BASE_REQUIREMENT * scene.GameConsts.RELIC_LEVEL_XP_FRACTION
 	var next_relic: float = scene.GameConsts.RELIC_FIRST_SPAWN_TIME
 	for second in int(scene.RUN_DURATION):
-		budget_xp += scene.GameConsts.XP_PER_DROP / scene._enemy_spawn_interval(float(second) + 0.5)
+		budget_xp += scene.GameConsts.XP_PER_DROP * scene._enemy_max_spawn_rate(float(second) + 0.5)
 		if float(second) >= next_relic:
 			budget_xp += scene._xp_required_for_level(budget_level) * scene.GameConsts.RELIC_LEVEL_XP_FRACTION
 			next_relic += scene.GameConsts.RELIC_SPAWN_INTERVAL
 		while budget_xp >= scene._xp_required_for_level(budget_level):
 			budget_xp -= scene._xp_required_for_level(budget_level)
 			budget_level += 1
-	assert(budget_level == 34, "Reduced final spawn rate yields a level-34 ten-minute reward budget")
-	print("TEN-MINUTE XP BUDGET: level %d with all drops and scheduled relics" % budget_level)
+	assert(budget_level == 37, "Maximum-credit spawning gives a level-37 reward bound with the existing XP curve")
+	print("TEN-MINUTE XP UPPER BOUND: level %d with an empty crowd, all drops and scheduled relics" % budget_level)
