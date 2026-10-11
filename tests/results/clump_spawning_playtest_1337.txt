@@ -1,0 +1,11 @@
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+TRACE t=60.02 physics=3602 hop=4 pos=(20.94769, 1.085862, -2.01517) hp=100.0 level=3 kills=31 alive=0 stats={ "projectiles": 1, "bounces": 2, "radius": 1.5, "damage": 120.0, "crit": 0.05, "attack_speed": 1.0 }
+TRACE t=120.02 physics=7202 hop=4 pos=(17.35776, 1.368104, 27.54584) hp=100.0 level=6 kills=64 alive=3 stats={ "projectiles": 1, "bounces": 2, "radius": 1.5, "damage": 190.0, "crit": 0.05, "attack_speed": 1.17 }
+TRACE t=180.00 physics=10801 hop=4 pos=(-29.96558, 1.218137, -31.76328) hp=100.0 level=7 kills=136 alive=9 stats={ "projectiles": 1, "bounces": 2, "radius": 1.5, "damage": 210.0, "crit": 0.05, "attack_speed": 1.17 }
+TRACE t=240.00 physics=14401 hop=4 pos=(-21.05934, 0.573084, 0.180165) hp=100.0 level=10 kills=216 alive=4 stats={ "projectiles": 2, "bounces": 2, "radius": 1.5, "damage": 240.0, "crit": 0.05, "attack_speed": 1.34 }
+TRACE t=300.00 physics=18001 hop=4 pos=(-19.78417, 0.183083, -7.272387) hp=100.0 level=12 kills=349 alive=3 stats={ "projectiles": 2, "bounces": 4, "radius": 1.5, "damage": 240.0, "crit": 0.05, "attack_speed": 1.51 }
+TRACE t=360.00 physics=21601 hop=4 pos=(16.32933, 0.573087, -31.05515) hp=100.0 level=16 kills=788 alive=93 stats={ "projectiles": 3, "bounces": 4, "radius": 1.5, "damage": 260.0, "crit": 0.05, "attack_speed": 1.8 }
+TRACE t=420.02 physics=25202 hop=4 pos=(20.29239, 0.183084, 5.928595) hp=76.7 level=19 kills=1522 alive=149 stats={ "projectiles": 5, "bounces": 4, "radius": 1.8, "damage": 260.0, "crit": 0.05, "attack_speed": 1.92 }
+TRACE t=480.02 physics=28802 hop=4 pos=(18.69105, 1.023107, 32.99469) hp=50.8 level=24 kills=3099 alive=329 stats={ "projectiles": 5, "bounces": 4, "radius": 1.8, "damage": 280.0, "crit": 0.08, "attack_speed": 2.5 }
+RESULT seed=1337 pilot=skilled victory=false finished_at=519.83 hp=0.0 minimum_hp=0.0 final_minimum_hp=100.0 damage=287.0 final_damage=0.0 peak_alive=338 total_damage=2731870.0 kills=3971 level=26

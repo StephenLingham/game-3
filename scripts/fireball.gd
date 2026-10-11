@@ -128,7 +128,7 @@ func _find_bounce_target() -> Node3D:
 	var closest: Node3D
 	var closest_distance := INF
 	for candidate in get_tree().get_nodes_in_group("enemies"):
-		if not is_instance_valid(candidate) or candidate.is_queued_for_deletion():
+		if not is_instance_valid(candidate) or candidate.is_queued_for_deletion() or candidate.emerging:
 			continue
 		if already_hit.has(candidate.get_instance_id()):
 			continue

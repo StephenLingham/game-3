@@ -265,7 +265,7 @@ func _handle_enemy_contacts() -> void:
 func _split_dash_crowd(start: Vector3, end: Vector3) -> void:
 	var side := dash_direction.cross(Vector3.UP).normalized()
 	for enemy in get_tree().get_nodes_in_group("enemies"):
-		if not is_instance_valid(enemy) or enemy.defeated or dash_hit_enemies.has(enemy.get_instance_id()):
+		if not is_instance_valid(enemy) or enemy.defeated or enemy.emerging or dash_hit_enemies.has(enemy.get_instance_id()):
 			continue
 		var center: Vector3 = enemy.global_position + Vector3.UP * 0.68 * enemy.scale.y
 		var closest := Geometry3D.get_closest_point_to_segment(center, start + Vector3.UP * 0.8, end + Vector3.UP * 0.8)

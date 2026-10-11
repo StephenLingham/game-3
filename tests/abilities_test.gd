@@ -11,13 +11,14 @@ func _run() -> void:
 	current_scene = scene
 	await _physics_frames(3)
 
-	# Spawning follows the configurable rate curve without a population cap.
-	_check(is_equal_approx(scene._enemy_spawn_interval(0.0), 1.0 / scene.GameConsts.ENEMY_SPAWN_RATES[0]), "opening enemy spawn rate uses design constants")
-	_check(is_equal_approx(scene._enemy_spawn_interval(600.0), 1.0 / scene.GameConsts.ENEMY_SPAWN_RATES.back()), "late enemy spawn rate uses design constants")
+	# The population director spends credits in clumps within its living target.
+	_check(is_equal_approx(scene._enemy_max_spawn_rate(0.0), scene.GameConsts.ENEMY_SPAWN_RATES[0]), "opening credit income uses design constants")
+	_check(scene._enemy_population_target(600.0) == scene.GameConsts.ENEMY_POPULATION_CAP, "final swarm uses the population cap")
 	var count_before: int = get_nodes_in_group("enemies").size()
 	scene.enemy_spawn_clock = 0.0
-	scene._process(0.01)
-	_check(get_nodes_in_group("enemies").size() == count_before + 1, "spawn clock creates an enemy without a population cap")
+	scene.enemy_spawn_credits = float(scene.GameConsts.ENEMY_CLUMP_MIN_SIZE)
+	scene._process(scene.GameConsts.ENEMY_SPAWN_TICK)
+	_check(get_nodes_in_group("enemies").size() == count_before + scene.GameConsts.ENEMY_CLUMP_MIN_SIZE, "spawn credits create a clump within the population target")
 	var level_one_xp: float = scene._xp_required_for_level(1)
 	var level_two_xp: float = scene._xp_required_for_level(2)
 	var level_three_xp: float = scene._xp_required_for_level(3)
@@ -58,6 +59,7 @@ func _run() -> void:
 	var enemies := get_nodes_in_group("enemies")
 	for enemy in enemies:
 		enemy.set_physics_process(false)
+		enemy._advance_emergence(2.0)
 		enemy.global_position = Vector3(35.0, 0.05, 35.0)
 	var target: Node = enemies[0]
 	target.global_position = player.global_position + Vector3(40.0, 0.05, 0.0)
@@ -82,6 +84,8 @@ func _run() -> void:
 	for i in 4:
 		scene._spawn_enemy()
 	var fresh_enemies := get_nodes_in_group("enemies")
+	for enemy in fresh_enemies:
+		enemy._advance_emergence(2.0)
 	scene._use_skill(4)
 	_check(get_nodes_in_group("vortices").size() == 1, "vortex skill launches a black pulling sphere")
 	_check(scene.VortexScript.PULL_RADIUS >= 150.0, "vortex reaches enemies across the whole map")
@@ -116,7 +120,7 @@ func _run() -> void:
 	_check(is_equal_approx(scene.xp_bar.anchor_left, 0.5) and scene.level_label.text.begins_with("Level "), "centered XP bar displays only the title-case player level")
 	_check(scene.xp_label.get_parent() != scene.xp_bar and "XP" in scene.xp_label.text, "XP statistics are displayed below the XP bar")
 	scene._update_hud()
-	_check("Spawn" in scene.wave_label.text and "%d Alive" % scene._alive_enemy_count() in scene.wave_label.text, "HUD displays the spawn rate and current living enemy count")
+	_check("Wave" in scene.wave_label.text and "%d Alive" % scene._alive_enemy_count() in scene.wave_label.text, "HUD displays the wave and current living enemy count")
 	_check(scene.wave_label.global_position.y >= scene.xp_bar.global_position.y + scene.xp_bar.size.y, "top-right status text sits below the level bar")
 	var upgrade_card: Button = scene._create_upgrade_card(scene._make_offer("damage"), 0)
 	_check(upgrade_card.mouse_filter == Control.MOUSE_FILTER_STOP and not upgrade_card.pressed.get_connections().is_empty(), "level-up cards can be clicked")
@@ -163,6 +167,7 @@ func _run() -> void:
 		scene._spawn_enemy()
 		fresh_enemies = get_nodes_in_group("enemies")
 	var star_target: Node = fresh_enemies[fresh_enemies.size() - 1]
+	star_target._advance_emergence(2.0)
 	star_target.global_position = player.global_position + Vector3(0.5, 0.0, 0.0)
 	star_target.defeated = false
 	scene._on_pickup_collected("star", 1.0)

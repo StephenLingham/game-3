@@ -96,8 +96,7 @@ func _ready() -> void:
 	_build_arena()
 	_spawn_player()
 	_build_hud()
-	for i in GameConsts.INITIAL_ENEMY_COUNT:
-		_spawn_enemy()
+	_spawn_enemy_clumps(GameConsts.INITIAL_ENEMY_COUNT)
 	for i in GameConsts.INITIAL_RELIC_COUNT:
 		_spawn_relic()
 	_update_hud()
@@ -251,32 +250,64 @@ func _spawn_player() -> void:
 	player.hop_changed.connect(_on_hop_changed)
 	player.hurt.connect(_on_player_hurt)
 
-func _spawn_enemy() -> void:
+func _spawn_enemy(spawn_position := Vector3.INF, emergence_delay := 0.0) -> void:
 	if not is_instance_valid(player):
 		return
 	var enemy := EnemyScript.new()
 	enemy.add_to_group("enemies")
 	enemy.process_mode = Node.PROCESS_MODE_PAUSABLE
-	enemy.position = _enemy_spawn_position()
+	enemy.position = _enemy_spawn_position() if spawn_position == Vector3.INF else spawn_position
 	add_child(enemy)
 	var enemy_type := _choose_enemy_type(elapsed)
 	enemy.setup(player, enemy_type, ENEMY_HEALTH[enemy_type], ENEMY_COLORS[enemy_type])
+	enemy.begin_emergence(emergence_delay)
 	enemy.damage_dealt.connect(_on_damage_dealt)
 	enemy.died.connect(_on_enemy_died)
 
-func _enemy_spawn_position() -> Vector3:
-	var edge := GameConsts.ENEMY_SPAWN_EDGE
+func _spawn_enemy_clumps(count: int) -> void:
+	if count <= 0 or not is_instance_valid(player):
+		return
+	# Split a large batch evenly so it doesn't leave a lone enemy at the end.
+	var clumps := ceili(float(count) / float(GameConsts.ENEMY_CLUMP_MAX_SIZE))
+	var base_size := count / clumps
+	var remainder := count % clumps
+	for clump in clumps:
+		var size := base_size + (1 if clump < remainder else 0)
+		var positions := _enemy_clump_positions(size)
+		for i in size:
+			_spawn_enemy(positions[i], float(i) * GameConsts.ENEMY_EMERGENCE_STAGGER)
+
+func _enemy_clump_positions(count: int) -> Array[Vector3]:
+	var radius := GameConsts.ENEMY_CLUMP_RADIUS if count > 1 else 0.0
+	var centre := _enemy_spawn_position(radius)
+	var rotation := randf() * TAU
+	var positions: Array[Vector3] = []
+	for i in count:
+		var angle := rotation + TAU * float(i) / float(count)
+		positions.append(centre + Vector3(cos(angle), 0.0, sin(angle)) * radius)
+	return positions
+
+func _enemy_spawn_position(clump_radius := 0.0) -> Vector3:
+	# Reserve space for the whole clump, including wall and player clearance.
+	var edge := GameConsts.ENEMY_SPAWN_EDGE - clump_radius
+	var min_radius := GameConsts.ENEMY_SPAWN_DISTANCE_MIN + clump_radius
+	var max_radius := GameConsts.ENEMY_SPAWN_DISTANCE_MAX - clump_radius
 	var player_pos := Vector2(player.global_position.x, player.global_position.z)
-	for attempt in 32:
+	var movement := Vector2(player.velocity.x, player.velocity.z)
+	var prefer_forward := movement.length() >= GameConsts.ENEMY_SPAWN_MOVEMENT_THRESHOLD and randf() < GameConsts.ENEMY_SPAWN_FORWARD_CHANCE
+	for attempt in 64:
 		var angle := randf() * TAU
-		# Sample the annulus uniformly by area, then reject positions outside walls.
-		var radius := sqrt(randf_range(pow(GameConsts.ENEMY_SPAWN_DISTANCE_MIN, 2.0), pow(GameConsts.ENEMY_SPAWN_DISTANCE_MAX, 2.0)))
+		# Use velocity rather than camera facing, so strafing and retreating work too.
+		# If walls block that cone, the second half of the search uses all directions.
+		if prefer_forward and attempt < 32:
+			angle = movement.angle() + randf_range(-GameConsts.ENEMY_SPAWN_FORWARD_HALF_ANGLE, GameConsts.ENEMY_SPAWN_FORWARD_HALF_ANGLE)
+		var radius := sqrt(randf_range(min_radius * min_radius, max_radius * max_radius))
 		var candidate := player_pos + Vector2(cos(angle), sin(angle)) * radius
 		if absf(candidate.x) <= edge and absf(candidate.y) <= edge:
 			return Vector3(candidate.x, 0.05, candidate.y)
 	# Facing the centre provides a valid, nearby fallback even in arena corners.
 	var inward := -player_pos.normalized() if player_pos.length_squared() > 0.01 else Vector2.RIGHT
-	var fallback := player_pos + inward * GameConsts.ENEMY_SPAWN_DISTANCE_MIN
+	var fallback := player_pos + inward * min_radius
 	return Vector3(fallback.x, 0.05, fallback.y)
 
 func _spawn_curve_value(values: Array, at_time: float) -> float:
@@ -326,8 +357,11 @@ func _update_enemy_spawning(delta: float) -> void:
 			continue
 		enemy_spawn_credits = minf(GameConsts.ENEMY_SPAWN_CREDIT_CAP, enemy_spawn_credits + _enemy_credit_rate(tick_time, alive) * GameConsts.ENEMY_SPAWN_TICK)
 		var count := mini(mini(floori(enemy_spawn_credits), deficit), frame_budget)
-		for i in count:
-			_spawn_enemy()
+		# Bank a few credits for a visible group; small remaining population slots
+		# may still be filled without overshooting the target or frame budget.
+		if count < mini(GameConsts.ENEMY_CLUMP_MIN_SIZE, mini(deficit, frame_budget)):
+			continue
+		_spawn_enemy_clumps(count)
 		alive += count
 		frame_budget -= count
 		enemy_spawn_credits -= float(count)

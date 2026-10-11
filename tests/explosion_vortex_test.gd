@@ -14,6 +14,7 @@ func _run() -> void:
 	scene.player.set_physics_process(false)
 	var enemy = get_nodes_in_group("enemies")[0]
 	enemy.set_physics_process(false)
+	enemy._advance_emergence(2.0)
 	enemy.global_position = Vector3(10, 0.05, 10)
 	var vortex = scene.VortexScript.new()
 	scene.add_child(vortex)

@@ -12,6 +12,10 @@ var move_speed := EnemyConsts.ENEMY_SPEED
 var touch_cooldown := 0.0
 var contact_damage := EnemyConsts.ENEMY_CONTACT_DAMAGE
 var visual: Node3D
+var appearance_root: Node3D
+var health_bar_root: Node3D
+var emerging := false
+var emergence_time := 0.0
 var flash_timer := 0.0
 var health_bar_fill: MeshInstance3D
 var health_bar_material: StandardMaterial3D
@@ -54,9 +58,11 @@ func _build_cube() -> void:
 	collision.shape = box
 	collision.position.y = 0.68
 	add_child(collision)
+	appearance_root = Node3D.new()
+	add_child(appearance_root)
 	visual = Node3D.new()
 	visual.position.y = 0.68
-	add_child(visual)
+	appearance_root.add_child(visual)
 	var body := MeshInstance3D.new()
 	var cube := BoxMesh.new()
 	cube.size = Vector3(1.35, 1.35, 1.35)
@@ -86,13 +92,15 @@ func _build_cube() -> void:
 	_build_ice_shell()
 
 func _build_health_bar() -> void:
+	health_bar_root = Node3D.new()
+	appearance_root.add_child(health_bar_root)
 	var background := MeshInstance3D.new()
 	var background_mesh := BoxMesh.new()
 	background_mesh.size = Vector3(1.62, 0.22, 0.07)
 	background.mesh = background_mesh
 	background.position = Vector3(0, 1.66, -0.74)
 	background.material_override = _mat(Color("17202a"))
-	add_child(background)
+	health_bar_root.add_child(background)
 
 	health_bar_fill = MeshInstance3D.new()
 	var fill_mesh := BoxMesh.new()
@@ -104,7 +112,7 @@ func _build_health_bar() -> void:
 	health_bar_material.emission = Color("36b94b")
 	health_bar_material.emission_energy_multiplier = 1.2
 	health_bar_fill.material_override = health_bar_material
-	add_child(health_bar_fill)
+	health_bar_root.add_child(health_bar_fill)
 
 	health_bar_text = Label3D.new()
 	health_bar_text.position = Vector3(0, 1.66, -0.86)
@@ -116,7 +124,7 @@ func _build_health_bar() -> void:
 	health_bar_text.outline_modulate = Color("111820")
 	health_bar_text.outline_size = 10
 	health_bar_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	add_child(health_bar_text)
+	health_bar_root.add_child(health_bar_text)
 	_update_health_bar()
 
 func _update_health_bar() -> void:
@@ -140,6 +148,35 @@ func _mat(color: Color) -> StandardMaterial3D:
 	mat.roughness = 0.85
 	return mat
 
+func begin_emergence(delay := 0.0) -> void:
+	emerging = true
+	emergence_time = -maxf(0.0, delay)
+	appearance_root.position.y = -EnemyConsts.ENEMY_EMERGENCE_DEPTH
+	health_bar_root.visible = false
+	# Buried enemies reserve population slots but cannot block or hurt the player.
+	collision_layer = 0
+	collision_mask = 0
+	velocity = Vector3.ZERO
+	if is_instance_valid(target):
+		var direction := target.global_position - global_position
+		direction.y = 0.0
+		if not direction.is_zero_approx():
+			look_at(global_position + direction, Vector3.UP)
+
+func _advance_emergence(delta: float) -> void:
+	if not emerging:
+		return
+	emergence_time += delta
+	var progress := clampf(emergence_time / EnemyConsts.ENEMY_EMERGENCE_DURATION, 0.0, 1.0)
+	# Smooth acceleration and deceleration make the rise read as digging out.
+	var eased := progress * progress * (3.0 - 2.0 * progress)
+	appearance_root.position.y = lerpf(-EnemyConsts.ENEMY_EMERGENCE_DEPTH, 0.0, eased)
+	if progress >= 1.0:
+		emerging = false
+		health_bar_root.visible = true
+		collision_layer = 4
+		collision_mask = 1 | 2
+
 func _physics_process(delta: float) -> void:
 	if not is_instance_valid(target):
 		return
@@ -153,6 +190,10 @@ func _physics_process(delta: float) -> void:
 		vortex_source = null
 	flash_timer = maxf(0.0, flash_timer - delta)
 	visual.scale = Vector3.ONE * (1.08 if flash_timer > 0.0 else 1.0)
+	if emerging:
+		_advance_emergence(delta)
+		velocity = Vector3.ZERO
+		return
 	if vortex_hold_timer > 0.0:
 		velocity = Vector3.ZERO
 		return
@@ -206,6 +247,8 @@ func defeat(attack_id := -1, damage_amount := 0.0) -> void:
 	queue_free()
 
 func apply_knockback(origin: Vector3, force: float) -> void:
+	if emerging:
+		return
 	var direction := global_position - origin
 	direction.y = 0.0
 	if direction.length_squared() < 0.01:
@@ -214,6 +257,8 @@ func apply_knockback(origin: Vector3, force: float) -> void:
 	velocity.y = maxf(velocity.y, force * 0.22)
 
 func apply_directional_knockback(direction: Vector3, force: float) -> void:
+	if emerging:
+		return
 	velocity.x = direction.x * force
 	velocity.z = direction.z * force
 
@@ -222,7 +267,7 @@ func freeze(duration: float) -> void:
 	ice_shell.visible = freeze_timer > 0.0
 
 func pull_toward(point: Vector3, force: float, delta: float, source: Node3D = null) -> void:
-	if defeated:
+	if defeated or emerging:
 		return
 	var body_center := global_position + Vector3.UP * 0.68 * scale.y
 	var offset := point - body_center
@@ -333,4 +378,4 @@ func _build_ice_shell() -> void:
 	mat.emission_energy_multiplier = 1.2
 	ice_shell.material_override = mat
 	ice_shell.visible = false
-	add_child(ice_shell)
+	appearance_root.add_child(ice_shell)

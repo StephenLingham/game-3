@@ -33,9 +33,9 @@ func _run() -> void:
 	for enemy in get_nodes_in_group("enemies"):
 		enemy.defeated = true
 	assert(scene._alive_enemy_count() == 0)
-	scene.enemy_spawn_credits = 1.0
+	scene.enemy_spawn_credits = float(settings.ENEMY_CLUMP_MIN_SIZE)
 	scene._update_enemy_spawning(settings.ENEMY_SPAWN_TICK)
-	assert(scene._alive_enemy_count() == 1, "Killed enemies release population slots before queue_free finishes")
+	assert(scene._alive_enemy_count() == settings.ENEMY_CLUMP_MIN_SIZE, "Killed enemies release population slots before queue_free finishes")
 	# Killing quickly permits more actual replenishment than leaving a dense crowd.
 	var thin_spawns := _measure_spawns(scene, 0)
 	var dense_spawns := _measure_spawns(scene, 129)

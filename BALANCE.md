@@ -27,13 +27,19 @@ These primary sources establish the target/interval/credit structure and final-s
 
 ## Spawn geometry
 
-All enemies, including the initial seven, spawn in an annulus **18–28 horizontal units from the player's current position**, uniformly sampled by area. This keeps reinforcements near the action as the player travels. Candidates outside `x/z = ±46` are rejected, leaving clearance from the walls' inner faces at ±47.5 for the largest enemy's roughly 0.89 half-width.
+All enemies, including the initial seven, spawn in compact clumps. The director banks enough credits for **3–6 enemies**; the last one or two available population slots can still be filled. Larger batches split evenly across several clumps, and the initial seven arrive as groups of four and three. Members share an anchor and sit on a **2.6-unit radius** ring, giving even the largest six-member group enough spacing to emerge without overlapping.
 
-After 32 failed attempts, the fallback goes 18 units toward the arena centre. The rules test checks 1,400 samples with the player at the centre, each side and opposite corners, including wall clearance, minimum and maximum distance, and approach directions.
+Every member stays **18–28 horizontal units from the player's current position** and inside `x/z = ±46`. Anchors reserve the entire clump's radius from both the annulus boundaries and the walls. The walls' inner faces are at ±47.5, leaving clearance for the largest enemy's roughly 0.89 half-width.
+
+When horizontal speed is at least **0.5 units/second**, **80% of clumps prefer a ±60° cone around actual movement velocity**. The remaining clumps sample all directions, so enemies still arrive from the sides and rear. This follows strafing, retreating and dashing independently of camera facing. Stationary players and vertical jumps use all horizontal directions. A forward-biased search tries 32 positions in the cone before trying 32 in all directions, allowing wall-blocked travel to fall back to available space. If all candidates fail, the anchor goes toward the arena centre at the minimum reserved distance.
+
+Enemies begin fully underground, then rise smoothly over **0.8 seconds**, with a **0.07-second stagger** between clump members. Their health bars appear at the end. While rising they count toward population limits, remain grounded, and have no contact/projectile collider; chasing, contact damage, knockback, vortex capture and ricochet targeting start after emergence. Pause and upgrade menus pause the rise. Global ability damage can still affect the emerging enemies.
+
+`tests/spawn_presentation_test.gd` checks initial and credit-batched groups, spacing, wall and annulus bounds, movement bias in four directions, stationary coverage, the rise/stagger, paused animation and collider/ricochet activation. Its optional `--capture` mode records buried, rising and emerged frames using the compatibility renderer.
 
 ## Difficulty calculations
 
-Every 0.25 seconds, the director counts living enemies and computes `deficit = (target − alive) / target`. Below the target, credit income is `maximum_rate × clamp(2 × deficit, 0.15, 1)`. Each enemy costs one credit. The director spends whole credits without exceeding the target and retains the fractional remainder. At or above the target, income and stored credit become zero. Defeated enemies release their slots immediately, including nodes awaiting deletion. No build stats are inspected and no health/speed adjustment is applied.
+Every 0.25 seconds, the director counts living enemies and computes `deficit = (target − alive) / target`. Below the target, credit income is `maximum_rate × clamp(2 × deficit, 0.15, 1)`. Each enemy costs one credit. Once enough credits exist for a clump (or the remaining slots), the director spends whole credits without exceeding the target and retains the fractional remainder. At or above the target, income and stored credit become zero. Defeated enemies release their slots immediately, including nodes awaiting deletion. No build stats are inspected and no health/speed adjustment is applied.
 
 There is no fixed number of enemies per wave: totals depend on clearing speed. Integrating maximum income gives an upper bound of roughly **11,298 enemies including the initial seven**. Actual totals are lower as population feedback slows or stops spawning. Ordinary slow frames retain fractional credit; recovery after long stalls is limited to eight ticks, 32 stored credits and 32 new enemies per frame. This replaces unlimited spawn debt to protect the Web build from an overdue spawn avalanche. The director's living population never exceeds 400.
 
@@ -65,7 +71,9 @@ Each contact hit deals **7 HP**, with a shared 0.45-second recovery window and a
 
 ## Full-run playtests
 
-Population-director check (2026-10-11): skilled pilot / seed 1337 died at **7:37.53**, level 22, with 2,162 kills, 1,102,610 damage dealt and 298 peak living enemies. It had full health at 4:00. The trace is in `tests/results/megabonk_spawning_playtest_1337.txt`. This single run measures actual earned progression and the first three swarm entries; it does not establish final-minute survivability or a human win rate. Focused checks independently exercise final replenishment, the 400-enemy cap, crowd saturation, kill-driven refill, swarm endings, pause, spawn distances and long-frame recovery.
+Clump/emergence/movement-bias check (2026-10-11): skilled pilot / seed 1337 died at **8:39.83**, level 26, with **3,971 kills**, **2,731,870 damage dealt** and **338 peak living enemies**. It retained full health at 6:00. The trace is in `tests/results/clump_spawning_playtest_1337.txt`. This exercises actual movement, earned progression and all three timed swarms, but ended before the final minute. Focused checks separately validate final replenishment and the 400-enemy cap. Buried, rising and emerged clumps were also checked in rendered compatibility-mode captures. A single bot run does not establish a human win rate or browser frame rate.
+
+Historical population-director check (2026-10-11, before clumps, emergence and movement bias): skilled pilot / seed 1337 died at **7:37.53**, level 22, with 2,162 kills, 1,102,610 damage dealt and 298 peak living enemies. It had full health at 4:00. The trace is in `tests/results/megabonk_spawning_playtest_1337.txt`. This single run measures actual earned progression and the first three swarm entries; it does not establish final-minute survivability or a human win rate. Focused checks independently exercise final replenishment, the 400-enemy cap, crowd saturation, kill-driven refill, swarm endings, pause, spawn distances and long-frame recovery.
 
 Automated pilots play the actual Godot scene at 60 physics ticks per simulated second. They move, aim with limited turn speed, fire physical projectiles, collect real pickups, select real upgrade offers and use abilities at their actual cooldowns. They never teleport, inject damage, grant XP/upgrades or skip the timer. Headless Godot cannot capture a cursor, so its harness mirrors held-fire creation at the normal attack cooldown. The casual pilot walks without jumping or dashing, but still aims and uses abilities effectively. These labels describe bot behaviour, not measured human skill levels.
 
@@ -104,8 +112,10 @@ Run focused rules and exported-pack verification:
 ```powershell
 godot --headless --path . --fixed-fps 60 --script tests/balance_rules_test.gd
 godot --headless --path . --fixed-fps 60 --script tests/spawn_director_test.gd
+godot --headless --path . --fixed-fps 60 --script tests/spawn_presentation_test.gd
 godot --headless --path . --main-pack docs/index.pck --fixed-fps 60 --script C:/R/game-3/tests/balance_rules_test.gd
 godot --headless --path . --main-pack docs/index.pck --fixed-fps 60 --script C:/R/game-3/tests/spawn_director_test.gd
+godot --headless --path . --main-pack docs/index.pck --fixed-fps 60 --script C:/R/game-3/tests/spawn_presentation_test.gd
 godot --headless --path . --main-pack docs/index.pck --fixed-fps 60 --script C:/R/game-3/tests/progression_ui_test.gd
 ```
 
@@ -118,6 +128,9 @@ Focused checks cover spawning, constant speed, population targets, timed and fin
 - `ENEMY_POPULATION_TARGETS` controls crowd size; `ENEMY_SPAWN_RATES` controls maximum replenishment income. Tune them together.
 - `ENEMY_SWARM_TIMES`, `ENEMY_SWARM_DURATION` and the swarm multipliers control pressure surges. `ENEMY_FINAL_SWARM_TIME` begins the sustained final crowd.
 - `ENEMY_POPULATION_CAP`, credit cap and per-frame budget bound Web workload. Do not restore unlimited catch-up spawning.
+- `ENEMY_CLUMP_MIN_SIZE`, `ENEMY_CLUMP_MAX_SIZE` and `ENEMY_CLUMP_RADIUS` control batching and group spacing; keep enough room for each health tier's scaled collider.
+- `ENEMY_SPAWN_FORWARD_CHANCE` and the forward half-angle control movement bias; retain an all-direction fallback at walls.
+- `ENEMY_EMERGENCE_DURATION`, depth and stagger control the underground rise; bodies must start fully buried and finish before collider activation.
 - Keep ten health tiers. Late HP and contact damage affect survival separately from crowd size.
 - `ENEMY_SPEED` controls the constant movement speed for every wave and enemy tier.
 - `HEALTH_REGEN_END`, `PLAYER_HIT_GRACE` and `DASH_COOLDOWN` control the margin for mistakes.
